@@ -58,21 +58,31 @@ pub enum IterLimbMode {
     Backward,
 }
 
+struct MyStruct {
+    data: Vec<i32>,
+}
+
+impl MyStruct {
+    fn iter_mut<'a>(&'a mut self) -> impl Iterator<Item = &'a mut i32> {
+        self.data.iter_mut()
+    }
+}
+
 pub struct IterLimb<'a> {
     count: usize,
     bounce: usize,
-    collection: &'a mut Limb,
+    collection: *mut Limb,
     mode: IterLimbMode,
+    _marker: std::marker::PhantomData<&'a mut Limb>,
 }
 
 impl<'a> Iterator for IterLimb<'a> {
-    type Item = Joint;
+    type Item = &'a mut Joint;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.count > self.collection.joints.len() {}
+        // if self.count > self.collection.joints.len() {}
         let count = self.count;
-        self.collection.joints.get(count);
-        todo!()
+        unsafe { *self.collection }.joints.get_mut(count)
     }
 }
 
