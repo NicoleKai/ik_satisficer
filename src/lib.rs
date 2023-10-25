@@ -1,4 +1,4 @@
-use std::{default, sync::Arc};
+use std::{default, marker::PhantomData, sync::Arc};
 
 use bevy_math::Vec3;
 use derive_new::new;
@@ -18,71 +18,54 @@ impl Joint {
     }
 }
 
+#[inline]
+fn compute_iterations(bounce_iterations: usize, length: usize) -> usize {
+    bounce_iterations * (length - 1) * 2 + 1
+}
+
+enum State {
+    Inc,
+    Dec,
+}
+
 /// Last item in Vec is end effector
-#[derive(new, Default, Debug, Clone)]
+#[derive(Default, Debug, Clone)]
 pub struct Limb {
+    iterations: usize,
     joints: Vec<Joint>,
 }
 
 impl Limb {
-    pub fn iter_mut(&mut self) -> IterLimb {
-        IterLimb {
-            count: 0,
-            bounce: 1,
-            collection: self,
-            mode: IterLimbMode::Backward,
+    pub fn new(bounce_iterations: usize, joints: Vec<Joint>) -> Self {
+        let len = joints.len();
+        Self {
+            iterations: compute_iterations(bounce_iterations, len),
+            joints,
         }
     }
     pub fn satisfice(&mut self, target_end_effector: Vec3) {
-        // TODO: zero-copy
-        for value in self.iter_mut() {}
-        // let mut r = self.joints.clone();
-        // r.reverse();
-        // r.remove(r.len() - 1);
-        // let mut joints = r.iter_mut().chain(self.joints.iter_mut()).into_iter();
-        // while let Some(mut joint) = joints.next() {
-        //     *joint = Joint::new("pls", Vec3::ZERO);
-        //     // joint.peek(
-        //     // match joints {
-        //     //     &[prev_joint, curr_joint, next_joint] => {
-        //     //         dbg!(curr_joint);
-        //     //     }
-        //     //     _ => panic!("crabs attacking!11"),
-        //     // }
-        // }
-    }
-}
-
-pub enum IterLimbMode {
-    Forward,
-    Backward,
-}
-
-struct MyStruct {
-    data: Vec<i32>,
-}
-
-impl MyStruct {
-    fn iter_mut<'a>(&'a mut self) -> impl Iterator<Item = &'a mut i32> {
-        self.data.iter_mut()
-    }
-}
-
-pub struct IterLimb<'a> {
-    count: usize,
-    bounce: usize,
-    collection: *mut Limb,
-    mode: IterLimbMode,
-    _marker: std::marker::PhantomData<&'a mut Limb>,
-}
-
-impl<'a> Iterator for IterLimb<'a> {
-    type Item = &'a mut Joint;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        // if self.count > self.collection.joints.len() {}
-        let count = self.count;
-        unsafe { *self.collection }.joints.get_mut(count)
+        let v_len = self.joints.len();
+        dbg!(&v_len);
+        if v_len <= 0 {
+            return;
+        }
+        let mut index = v_len - 1;
+        let mut state = State::Inc;
+        for _counter in 0..self.iterations {
+            if index >= v_len {
+                state = State::Dec;
+                // Will break for lengths less than 2 obvs
+                index = v_len - 2;
+            }
+            if index <= 0 {
+                state = State::Inc;
+            }
+            dbg!(&self.joints[index]);
+            match state {
+                State::Inc => index += 1,
+                State::Dec => index -= 1,
+            }
+        }
     }
 }
 
@@ -94,15 +77,12 @@ mod tests {
     fn it_works() {
         // let result = add(2, 2);
         // assert_eq!(result, 4);
-        let mut limb = Limb::default();
-        limb.joints
-            .push(Joint::new("ground", Vec3::new(0., 0., 0.)));
-        limb.joints
-            .push(Joint::new("first joint", Vec3::new(1., 2., 3.)));
-        limb.joints
-            .push(Joint::new("second joint", Vec3::new(4., 5., 6.)));
-        limb.joints
-            .push(Joint::new("end effector", Vec3::new(7., 8., 9.)));
+        let mut joints = Vec::new();
+        joints.push(Joint::new("ground", Vec3::new(0., 0., 0.)));
+        joints.push(Joint::new("first joint", Vec3::new(1., 2., 3.)));
+        joints.push(Joint::new("second joint", Vec3::new(4., 5., 6.)));
+        joints.push(Joint::new("end effector", Vec3::new(7., 8., 9.)));
+        let mut limb = Limb::new(1, joints);
 
         limb.satisfice(Vec3::ZERO);
 
