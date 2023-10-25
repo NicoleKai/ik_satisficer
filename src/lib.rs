@@ -23,47 +23,63 @@ fn compute_iterations(bounce_iterations: usize, length: usize) -> usize {
     bounce_iterations * (length - 1) * 2 + 1
 }
 
-enum State {
-    Inc,
-    Dec,
+enum BounceState {
+    Forward,
+    Backward,
 }
 
 /// Last item in Vec is end effector
 #[derive(Default, Debug, Clone)]
 pub struct Limb {
+    bounce_iterations: usize,
     iterations: usize,
     joints: Vec<Joint>,
+}
+
+enum MathState {
+    Initialization,
+    Bouncing,
+    BounceBack,
 }
 
 impl Limb {
     pub fn new(bounce_iterations: usize, joints: Vec<Joint>) -> Self {
         let len = joints.len();
         Self {
+            // TODO: bounce iterations can be changed dynamically
+            bounce_iterations: 1,
             iterations: compute_iterations(bounce_iterations, len),
             joints,
         }
     }
     pub fn satisfice(&mut self, target_end_effector: Vec3) {
+        // TODO: handle niche cases, e.g., joint count <= 2
         let v_len = self.joints.len();
         dbg!(&v_len);
         if v_len <= 0 {
             return;
         }
         let mut index = v_len - 1;
-        let mut state = State::Inc;
-        for _counter in 0..self.iterations {
-            if index >= v_len {
-                state = State::Dec;
-                // Will break for lengths less than 2 obvs
-                index = v_len - 2;
-            }
-            if index <= 0 {
-                state = State::Inc;
-            }
-            dbg!(&self.joints[index]);
-            match state {
-                State::Inc => index += 1,
-                State::Dec => index -= 1,
+        let mut math_state = MathState::Initialization;
+        let mut bounce_state = BounceState::Forward;
+        for _bounce_counter in 0..self.bounce_iterations {
+            (*self.joints.last_mut().expect("crabs attacking")).position = target_end_effector;
+            // dbg!("END EFFECTOR", &self.joints.);
+
+            for _counter in 0..((v_len - 1) * 2 + 1) {
+                if index >= v_len {
+                    bounce_state = BounceState::Backward;
+                    // Will break for lengths less than 2 obvs
+                    index = v_len - 2;
+                }
+                if index <= 0 {
+                    bounce_state = BounceState::Forward;
+                }
+                dbg!(&self.joints[index]);
+                match bounce_state {
+                    BounceState::Forward => index += 1,
+                    BounceState::Backward => index -= 1,
+                }
             }
         }
     }
