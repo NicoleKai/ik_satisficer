@@ -21,18 +21,16 @@ impl Limb {
         let mut v = Vec::new();
         v.push(LimbNode::Terminus(Terminus::new(
             TerminusType::Ground,
-            Position::from(Vec3::ZERO),
+            Vec3::from(Vec3::ZERO),
         )));
         v.push(LimbNode::Segment(Segment::new(1.0)));
         for i in 0..num_joints {
-            v.push(LimbNode::Joint(Joint::new(Position::from(
-                Vec3::Y * i as f32,
-            ))));
+            v.push(LimbNode::Joint(Joint::new(Vec3::from(Vec3::Y * i as f32))));
             v.push(LimbNode::Segment(Segment::new(1.0)));
         }
         v.push(LimbNode::Terminus(Terminus::new(
             TerminusType::EndEffector,
-            Position::from(Vec3::Y * num_joints as f32),
+            Vec3::from(Vec3::Y * num_joints as f32),
         )));
         Self(v)
     }
@@ -52,13 +50,10 @@ pub enum TerminusType {
     Ground,
 }
 
-#[derive(Debug, Clone, PartialEq, From, Add, Into, Mul, Div, Sub)]
-pub struct Position(Vec3);
-
 #[derive(new, Debug, Clone)]
 pub struct Terminus {
     terminus_type: TerminusType,
-    pos: Position,
+    pos: Vec3,
 }
 
 #[derive(new, Debug, Clone)]
@@ -68,7 +63,7 @@ pub struct Segment {
 
 #[derive(new, Debug, Clone)]
 pub struct Joint {
-    pos: Position,
+    pos: Vec3,
 }
 
 #[derive(Debug, Clone, PartialEq, Snafu)]
@@ -80,44 +75,44 @@ pub enum SatisficeError {
 }
 
 pub trait Positioned {
-    fn update_pos(&mut self, prev_position: &mut Option<Position>, prev_segment: &Option<Segment>) {
+    fn update_pos(&mut self, prev_position: &mut Option<Vec3>, prev_segment: &Option<Segment>) {
         match (&prev_position, prev_segment) {
             (Some(prev_position), Some(prev_segment)) => {
                 let position = self.pos();
-                let o_vec: Vec3 = position.0 - prev_position.0;
+                let o_vec: Vec3 = position - *prev_position;
                 let o_vec_hat = o_vec.normalize();
-                self.set_pos(Position::from(o_vec_hat * prev_segment.length));
+                self.set_pos(Vec3::from(o_vec_hat * prev_segment.length));
             }
             _ => {}
         }
         *prev_position = Some(self.pos());
     }
-    fn pos(&self) -> Position;
-    fn set_pos(&mut self, p: Position);
+    fn pos(&self) -> Vec3;
+    fn set_pos(&mut self, p: Vec3);
 }
 
 impl Positioned for Terminus {
-    fn pos(&self) -> Position {
+    fn pos(&self) -> Vec3 {
         self.pos.clone()
     }
 
-    fn set_pos(&mut self, p: Position) {
+    fn set_pos(&mut self, p: Vec3) {
         self.pos = p;
     }
 }
 
 impl Positioned for Joint {
-    fn pos(&self) -> Position {
+    fn pos(&self) -> Vec3 {
         self.pos.clone()
     }
 
-    fn set_pos(&mut self, p: Position) {
+    fn set_pos(&mut self, p: Vec3) {
         self.pos = p;
     }
 }
 
 impl Positioned for Limb {
-    fn pos(&self) -> Position {
+    fn pos(&self) -> Vec3 {
         match self.0.first() {
             Some(LimbNode::Terminus(terminus)) => terminus.pos(),
             Some(LimbNode::Joint(joint)) => joint.pos(),
@@ -125,7 +120,7 @@ impl Positioned for Limb {
         }
     }
 
-    fn set_pos(&mut self, p: Position) {
+    fn set_pos(&mut self, p: Vec3) {
         let original_pos = self.pos();
         let translation = p.clone() - original_pos;
         for v in self.0.iter_mut() {
@@ -161,16 +156,14 @@ impl IKSatisficer {
         &self.limb.nodes()
     }
     pub fn new(bounce_iterations: usize, limb: Limb) -> Self {
-        let len = limb.0.len();
         Self {
-            // TODO: bounce iterations can be changed dynamically
-            bounce_iterations: 1,
+            bounce_iterations,
             limb,
         }
     }
     fn handle_node(
         node: &mut LimbNode,
-        mut prev_position: &mut Option<Position>,
+        mut prev_position: &mut Option<Vec3>,
         prev_segment: &mut Option<Segment>,
     ) -> Result<(), SatisficeError> {
         match node {
@@ -181,9 +174,9 @@ impl IKSatisficer {
         }
         Ok(())
     }
-    pub fn satisfice(&mut self, target_end_effector_pos: Position) -> Result<(), SatisficeError> {
+    pub fn satisfice(&mut self, target_end_effector_pos: Vec3) -> Result<(), SatisficeError> {
         let len = self.limb.0.len();
-        let mut prev_position: Option<Position> = None;
+        let mut prev_position: Option<Vec3> = None;
         // let prev_segment: Option<Segment> = None;
         for _ in 0..self.bounce_iterations {
             let mut prev_segment: Option<Segment> = None;
@@ -225,7 +218,7 @@ mod tests {
     fn it_works() {
         let mut limb = Limb::new(3);
         let mut ik = IKSatisficer::new(1, limb);
-        ik.satisfice(Position::from(Vec3::Y * 10f32));
+        ik.satisfice(Vec3::from(Vec3::Y * 10f32));
         dbg!(ik.limb);
         assert!(false);
     }

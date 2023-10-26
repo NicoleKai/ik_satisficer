@@ -59,10 +59,7 @@ fn setup(
 pub fn render_limb(mut query: Query<&mut IKSatisficerComponent>, mut gizmos: Gizmos) {
     for mut ik in &mut query {
         let goal = Vec3::new(1.0, 1.0, 1.0);
-        dbg!(&ik.0.nodes());
         ik.0.satisfice(goal.into()).unwrap();
-        dbg!(&ik.0.nodes());
-        exit(0);
         gizmos.sphere(goal, Quat::default(), 0.3, Color::GREEN);
         let mut joint_points: Vec<Vec3> = Vec::new();
         for node in ik.0.nodes() {
