@@ -59,7 +59,7 @@ fn setup(
 pub fn render_limb(mut query: Query<&mut IKSatisficerComponent>, mut gizmos: Gizmos) {
     for mut ik in &mut query {
         let goal = Vec3::new(1.0, 1.0, 1.0);
-        ik.0.satisfice(goal.into()).unwrap();
+        // ik.0.satisfice(goal.into()).unwrap();
         gizmos.sphere(goal, Quat::default(), 0.3, Color::GREEN);
         let mut joint_points: Vec<Vec3> = Vec::new();
         for node in ik.0.nodes() {
@@ -78,11 +78,5 @@ pub fn render_limb(mut query: Query<&mut IKSatisficerComponent>, mut gizmos: Giz
             }
         }
         gizmos.linestrip(joint_points, Color::ORANGE);
-
-        // // Draw the curve
-        // gizmos.linestrip(cubic_curve.0.iter_positions(50), Color::WHITE);
-        // // position takes a point from the curve where 0 is the initial point
-        // // and 1 is the last point
-        // transform.translation = cubic_curve.0.position(t);
     }
 }
