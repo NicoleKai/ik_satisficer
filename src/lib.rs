@@ -1,31 +1,83 @@
-use std::{default, marker::PhantomData, sync::Arc};
+use std::{default, ops::DerefMut, sync::Arc};
 
 use bevy_math::Vec3;
-use derive_new::new;
+use derive_more::{Add, Div, From, Into, Mul, Sub};
+use snafu::{OptionExt, ResultExt, Snafu};
+
+#[derive(Debug, Clone, Snafu, PartialEq)]
+enum LimbError {
+    InvalidNode,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct Limb(Vec<LimbNode>);
+
+impl Limb {
+    fn get_pos(&self, index: usize) -> Result<Position, LimbError> {
+        match self.0.get(index) {
+            Some(LimbNode::Terminus(terminus)) => Ok(terminus.pos),
+            Some(LimbNode::Joint(joint)) => Ok(joint.pos),
+            _ => Err(LimbError::InvalidNode),
+        }
+    }
+    fn limb_pos(&self) -> Result<Position, LimbError> {
+        match self.0.first() {
+            Some(LimbNode::Terminus(terminus)) => Ok(terminus.pos),
+            _ => Err(LimbError::InvalidNode),
+        }
+    }
+}
 
 #[derive(Debug, Clone)]
-enum LimbComponent {
+pub enum LimbNode {
     Joint(Joint),
     Segment(Segment),
     Terminus(Terminus),
+    Limb(Limb),
 }
 
-pub enum Terminus {
+impl LimbNode {
+    fn get_pos(&self) -> Option<Position> {
+        match self {
+            LimbNode::Joint(j) => Some(j.pos.clone()),
+            LimbNode::Segment(_) => None,
+            LimbNode::Terminus(t) => Some(t.pos.clone()),
+            LimbNode::Limb(l) => l.limb_pos().ok(),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum TerminusType {
     EndEffector,
     Ground,
 }
 
+#[derive(Debug, Clone, PartialEq, From, Add, Into, Mul, Div, Sub)]
+pub struct Position(Vec3);
+
+#[derive(Debug, Clone)]
+pub struct Terminus {
+    terminus_type: TerminusType,
+    pos: Position,
+}
+
 #[derive(Debug, Clone)]
 pub struct Segment {
-    segment_name: Arc<str>,
-    position: Vec3,
     length: f32,
-    joint: Joint,
 }
 
 #[derive(Debug, Clone)]
 pub struct Joint {
-    position: Vec3,
+    pos: Position,
+}
+
+#[derive(Debug, Clone, PartialEq, Snafu)]
+pub enum SatisficeError {
+    EndIsNotTerminus,
+    LimbIsEmpty,
+    InvalidSegment,
+    InvalidLimb { source: LimbError },
 }
 
 // impl Segment {
@@ -42,43 +94,78 @@ fn compute_iterations(bounce_iterations: usize, length: usize) -> usize {
     bounce_iterations * (length - 1) * 2 + 1
 }
 
-enum BounceState {
-    Forward,
-    Backward,
-}
-
 /// Last item in Vec is end effector
 #[derive(Default, Debug, Clone)]
-pub struct Limb {
+pub struct IKSatisficer {
     bounce_iterations: usize,
     iterations: usize,
-    components: Vec<LimbComponent>,
+    limb: Limb,
 }
 
-enum MathState {
+pub enum MathState {
     Initialization,
     Bouncing,
     BounceBack,
 }
 
-impl Limb {
-    pub fn new(bounce_iterations: usize, joints: Vec<LimbComponent>) -> Self {
-        let len = joints.len();
+impl IKSatisficer {
+    pub fn new(bounce_iterations: usize, limb: Limb) -> Self {
+        let len = limb.0.len();
         Self {
             // TODO: bounce iterations can be changed dynamically
             bounce_iterations: 1,
             iterations: compute_iterations(bounce_iterations, len),
-            components: joints,
+            limb,
         }
     }
-    pub fn satisfice(&mut self, target_end_effector: Vec3) {
-        for something in self.components {
-            match something {
-                LimbComponent::Joint(_) => todo!(),
-                LimbComponent::Segment(_) => todo!(),
-                LimbComponent::Terminus(_) => todo!(),
+    pub fn satisfice(&mut self, target_end_effector_pos: Position) -> Result<(), SatisficeError> {
+        let len = self.limb.0.len();
+        for _ in 0..self.bounce_iterations {
+            let mut position: Option<Position> = None;
+            let mut prev_position: Option<Position> = None;
+            let LimbNode::Terminus(ref mut terminus) =
+                self.limb.0.last_mut().context(LimbIsEmptySnafu)?
+            else {
+                return Err(SatisficeError::EndIsNotTerminus);
+            };
+
+            terminus.pos = target_end_effector_pos.clone();
+            for mut index in len..0 {
+                self.limb.get_pos(index).context(InvalidLimbSnafu)?;
+
+                if let Ok(new_position) = self.limb.get_pos(index) {
+                    position = Some(new_position);
+                }
+                match (&prev_position, &position) {
+                    (Some(prev_position), Some(position)) => {
+                        let o_vec: Vec3 = position.0 - prev_position.0;
+                        let o_vec_hat = o_vec.normalize();
+                        let Some(LimbNode::Segment(prev_segment)) = self.limb.0.get(index - 1)
+                        else {
+                            return Err(SatisficeError::InvalidSegment);
+                        };
+                    }
+
+                    (_, _) => {}
+                }
+
+                prev_position = position.clone();
+            }
+            for index in 0..len {
+                if let Ok(new_position) = self.limb.get_pos(index) {
+                    position = Some(new_position);
+                }
+
+                prev_position = position.clone();
+                // match something {
+                //     LimbNode::Joint(_) => todo!(),
+                //     LimbNode::Segment(_) => todo!(),
+                //     LimbNode::Terminus(_) => todo!(),
+                // }
             }
         }
+
+        Ok(())
         //     // TODO: handle niche cases, e.g., joint count <= 2
         //     let v_len = self.components.len();
         //     let iterations = (v_len - 1) * 2 + 1;
