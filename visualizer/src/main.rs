@@ -1,18 +1,15 @@
-//! Demonstrates how to work with Cubic curves.
+use ik2::Limb;
 
-use std::process::exit;
+use bevy::prelude::*;
 
-use bevy::{
-    math::{cubic_splines::CubicCurve, vec3},
-    prelude::*,
-    window::ExitCondition,
-};
-
-use ik_satisficer::{self, IKSatisficer, Limb, LimbNode, Positioned};
+// use ik_satisficer::{self, IKSatisficer, Limb, LimbNode, Positioned};
+use ik2;
 use itertools::Itertools;
 
+// #[derive(Component)]
+// pub struct IKSatisficerComponent(IKSatisficer);
 #[derive(Component)]
-pub struct IKSatisficerComponent(IKSatisficer);
+pub struct LimbComponent(Limb);
 
 fn main() {
     App::new()
@@ -27,9 +24,14 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    let limb = Limb::new(3);
-    let ik_satisficer = IKSatisficer::new(1, limb);
-    commands.spawn(IKSatisficerComponent(ik_satisficer));
+    let mut limb = Limb::new(3, 1, Vec3::new(0.0, 0.8, 0.0));
+    // i luv panicks 💜 php time
+    limb.solve().unwrap();
+
+    commands.spawn(LimbComponent(limb));
+
+    // let ik_satisficer = IKSatisficer::new(1, limb);
+    // commands.spawn(IKSatisficerComponent(ik_satisficer));
 
     // Some light to see something
     commands.spawn(PointLightBundle {
@@ -57,41 +59,26 @@ fn setup(
     });
 }
 
-pub fn render_limb(mut query: Query<&mut IKSatisficerComponent>, mut gizmos: Gizmos) {
-    for mut ik in &mut query {
-        let goal = Vec3::new(1.0, 1.0, 1.0);
-        // ik.0.satisfice(goal.into()).unwrap();
-        gizmos.sphere(goal, Quat::default(), 0.3, Color::GREEN);
-        let mut joint_points: Vec<Vec3> = Vec::new();
-        let nodes = ik.0.nodes();
-        let len = nodes.len();
-        for index in 0..len {
-            match &nodes[index] {
-                ik_satisficer::LimbNode::Joint(j) => {
-                    gizmos.sphere(j.pos().into(), Quat::default(), 0.15, Color::BLUE);
-                    joint_points.push(j.pos().into());
-                }
-                ik_satisficer::LimbNode::Segment(s) => {
-                    match (&nodes[index - 1], &nodes[index + 1]) {
-                        (LimbNode::Joint(j0), LimbNode::Joint(j1)) => {
-                            gizmos.line(j0.pos(), j1.pos(), Color::BLACK);
-                        }
-                        _ => {}
-                    }
-                    // gizmos.sphere(s.pos().into(), Quat::default(), 0.1, Color::YELLOW_GREEN);
-                }
-                ik_satisficer::LimbNode::Terminus(t) => {
-                    gizmos.sphere(t.pos().into(), Quat::default(), 0.2, Color::RED);
-                }
-                ik_satisficer::LimbNode::Limb(_) => todo!(),
-            }
+pub fn render_limb(mut query: Query<&mut LimbComponent>, mut gizmos: Gizmos) {
+    for limb in &mut query {
+        // limb.0.solve().unwrap();         // let goal = Vec3::new(1.0, 1.0, 1.0);
+        // limb.0.target = goal;
+        // limb.0.solve();
+        gizmos.sphere(limb.0.target, Quat::default(), 0.3, Color::GREEN);
+
+        // fn sphere(pos: Vec3, size: f32) {
+        //     gizmos.sphere
+        // }
+        for segment in &limb.0.segments {
+            gizmos.sphere(
+                segment.start - Vec3::splat(0.01),
+                Quat::default(),
+                0.1,
+                Color::BLUE,
+            );
+            gizmos.line(segment.start, segment.end, Color::ORANGE);
+            gizmos.sphere(segment.end, Quat::default(), 0.1, Color::RED);
         }
-        gizmos.linestrip(
-            joint_points
-                .iter()
-                .map(|x| *x + Vec3::new(0.01, 0.01, 0.01))
-                .collect_vec(),
-            Color::ORANGE,
-        );
+        // gizmos.linestrip(limb.0.segments.iter().map(|x| x.end), Color::ORANGE);
     }
 }

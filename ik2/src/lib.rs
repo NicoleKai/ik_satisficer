@@ -2,26 +2,26 @@ use bevy_math::Vec3;
 use snafu::{OptionExt, Snafu};
 
 #[derive(Debug, Default)]
-struct Segment {
-    start: Vec3,
-    end: Vec3,
-    length: f32,
+pub struct Segment {
+    pub start: Vec3,
+    pub end: Vec3,
+    pub length: f32,
 }
 
 #[derive(Debug, Default)]
-struct Limb {
-    segments: Vec<Segment>,
-    target: Vec3,
-    bounces: usize,
+pub struct Limb {
+    pub segments: Vec<Segment>,
+    pub target: Vec3,
+    pub bounces: usize,
 }
 
 #[derive(Debug, Snafu)]
-enum SolveError {
+pub enum SolveError {
     EmptyLimb,
 }
 
 impl Limb {
-    fn new(n_segments: usize, bounces: usize, target: Vec3) -> Self {
+    pub fn new(n_segments: usize, bounces: usize, target: Vec3) -> Self {
         let mut segments = Vec::new();
         for i in 0..n_segments {
             segments.push(Segment {
@@ -36,7 +36,7 @@ impl Limb {
             bounces,
         }
     }
-    fn solve(&mut self) -> Result<(), SolveError> {
+    pub fn solve(&mut self) -> Result<(), SolveError> {
         let len = self.segments.len();
         for _bounce in 0..self.bounces {
             // Set end effector to target
@@ -72,11 +72,4 @@ impl Limb {
         }
         Ok(())
     }
-}
-
-fn main() {
-    let mut l = Limb::new(3, 1, Vec3::ZERO);
-    dbg!(&l);
-    l.solve().unwrap();
-    dbg!(&l);
 }

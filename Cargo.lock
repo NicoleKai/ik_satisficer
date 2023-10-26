@@ -3264,7 +3264,7 @@ name = "visualizer"
 version = "0.1.0"
 dependencies = [
  "bevy",
- "ik_satisficer",
+ "ik2",
  "itertools",
 ]
 
