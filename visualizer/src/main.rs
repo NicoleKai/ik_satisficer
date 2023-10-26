@@ -24,9 +24,10 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    let mut limb = Limb::new(3, 1, Vec3::new(0.0, 0.8, 0.0));
+    let mut limb = Limb::new(4, 1, Vec3::new(5.0, 0.8, 0.0));
     // i luv panicks 💜 php time
     limb.solve().unwrap();
+    dbg!(&limb);
 
     commands.spawn(LimbComponent(limb));
 
@@ -45,16 +46,16 @@ fn setup(
         ..default()
     });
 
-    // ground plane
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Plane::from_size(50.).into()),
-        material: materials.add(Color::SILVER.into()),
-        ..default()
-    });
+    // // ground plane
+    // commands.spawn(PbrBundle {
+    //     mesh: meshes.add(shape::Plane::from_size(50.).into()),
+    //     material: materials.add(Color::SILVER.into()),
+    //     ..default()
+    // });
 
     // The camera
     commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(0., 6., 12.).looking_at(Vec3::new(0., 0., 0.), Vec3::Y),
+        transform: Transform::from_xyz(0., 6., 7.).looking_at(Vec3::new(0., 0., 0.), Vec3::Y),
         ..default()
     });
 }
@@ -64,7 +65,7 @@ pub fn render_limb(mut query: Query<&mut LimbComponent>, mut gizmos: Gizmos) {
         // limb.0.solve().unwrap();         // let goal = Vec3::new(1.0, 1.0, 1.0);
         // limb.0.target = goal;
         // limb.0.solve();
-        gizmos.sphere(limb.0.target, Quat::default(), 0.3, Color::GREEN);
+        gizmos.sphere(limb.0.target, Quat::default(), 0.1, Color::GREEN);
 
         // fn sphere(pos: Vec3, size: f32) {
         //     gizmos.sphere
