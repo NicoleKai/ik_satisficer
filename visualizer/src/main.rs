@@ -36,10 +36,10 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    let mut limb = Limb::new(3, 1, Vec3::new(0.0, 0.8, 0.0));
+    let mut limb = Limb::new(3, 5, Vec3::new(0.0, 0.0, 0.0));
     // i luv panicks 💜 php time
     limb.solve().unwrap();
-    dbg!(&limb);
+    println!("{:?}", &limb);
 
     commands.spawn(LimbComponent(limb));
 
@@ -101,20 +101,14 @@ fn recompute_limb(
     };
 
     for mut limb in query_limb.iter_mut() {
+        dbg!(&limb.0);
         limb.0.target = new_target.translation;
         limb.0.solve().unwrap();
     }
 }
 pub fn render_limb(mut query: Query<&mut LimbComponent>, mut gizmos: Gizmos) {
     for limb in &mut query {
-        // limb.0.solve().unwrap();         // let goal = Vec3::new(1.0, 1.0, 1.0);
-        // limb.0.target = goal;
-        // limb.0.solve();
-        gizmos.sphere(limb.0.target, Quat::default(), 0.1, Color::GREEN);
-
-        // fn sphere(pos: Vec3, size: f32) {
-        //     gizmos.sphere
-        // }
+        gizmos.sphere(limb.0.target, Quat::default(), 0.5, Color::GREEN);
         for segment in &limb.0.segments {
             gizmos.sphere(
                 segment.start - Vec3::splat(0.01),
@@ -125,6 +119,5 @@ pub fn render_limb(mut query: Query<&mut LimbComponent>, mut gizmos: Gizmos) {
             gizmos.line(segment.start, segment.end, Color::ORANGE);
             gizmos.sphere(segment.end, Quat::default(), 0.1, Color::RED);
         }
-        // gizmos.linestrip(limb.0.segments.iter().map(|x| x.end), Color::ORANGE);
     }
 }

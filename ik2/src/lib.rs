@@ -30,6 +30,7 @@ impl Limb {
                 length: 1.0,
             });
         }
+        dbg!(&segments);
         Self {
             segments,
             target,
@@ -38,33 +39,41 @@ impl Limb {
     }
     pub fn solve(&mut self) -> Result<(), SolveError> {
         let len = self.segments.len();
+        dbg!(&len);
         for _bounce in 0..self.bounces {
-            // Set end effector to target
             (*self.segments.last_mut().context(EmptyLimbSnafu)?).end = self.target;
-            // iterates from len (max index) to zero
-            for index in len..0 {
-                // get current segment
-                let current = &mut self.segments[index];
-                // compute o-hat (current start minus current end) then normalize
-                current.end = (current.start - current.end).normalize() * current.length;
-                //set next end to current start
+
+            for index in (0..len).rev() {
+                let current: &mut Segment = self.segments.get_mut(index).unwrap();
+                (*current).end = (current.start - current.end).normalize() * current.length;
                 let current_start = current.start.clone();
-                if let Some(ref mut next) = self.segments.get_mut(index + 1) {
-                    next.end = current_start;
+                if let Some(next) = self.segments.get_mut(index + 1) {
+                    (*next).end = current_start;
                 }
             }
-            // iterates from 0 to len (max index)
+
+            (*self.segments.first_mut().context(EmptyLimbSnafu)?).start = Vec3::ZERO;
+
             for index in 0..len {
-                // get current segment
-                let current = &mut self.segments[index];
-                current.start = (current.end - current.start).normalize() * current.length;
-                // set next start to current end
+                let current: &mut Segment = self.segments.get_mut(index).unwrap();
+                (*current).start = (current.end - current.start).normalize() * current.length;
                 let current_end = current.end.clone();
-                if let Some(ref mut next) = self.segments.get_mut(index + 1) {
-                    next.start = current_end;
+                if let Some(next) = self.segments.get_mut(index + 1) {
+                    (*next).start = current_end;
                 }
             }
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    #[test]
+    fn test1() {
+        let mut limb = Limb::new(3, 3, Vec3::splat(0.8));
+        limb.solve();
+        dbg!(limb);
     }
 }
