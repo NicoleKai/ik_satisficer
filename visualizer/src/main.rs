@@ -8,7 +8,8 @@ use bevy::{
     window::ExitCondition,
 };
 
-use ik_satisficer::{self, IKSatisficer, Limb, Positioned};
+use ik_satisficer::{self, IKSatisficer, Limb, LimbNode, Positioned};
+use itertools::Itertools;
 
 #[derive(Component)]
 pub struct IKSatisficerComponent(IKSatisficer);
@@ -62,13 +63,21 @@ pub fn render_limb(mut query: Query<&mut IKSatisficerComponent>, mut gizmos: Giz
         // ik.0.satisfice(goal.into()).unwrap();
         gizmos.sphere(goal, Quat::default(), 0.3, Color::GREEN);
         let mut joint_points: Vec<Vec3> = Vec::new();
-        for node in ik.0.nodes() {
-            match node {
+        let nodes = ik.0.nodes();
+        let len = nodes.len();
+        for index in 0..len {
+            match &nodes[index] {
                 ik_satisficer::LimbNode::Joint(j) => {
                     gizmos.sphere(j.pos().into(), Quat::default(), 0.15, Color::BLUE);
                     joint_points.push(j.pos().into());
                 }
                 ik_satisficer::LimbNode::Segment(s) => {
+                    match (&nodes[index - 1], &nodes[index + 1]) {
+                        (LimbNode::Joint(j0), LimbNode::Joint(j1)) => {
+                            gizmos.line(j0.pos(), j1.pos(), Color::BLACK);
+                        }
+                        _ => {}
+                    }
                     // gizmos.sphere(s.pos().into(), Quat::default(), 0.1, Color::YELLOW_GREEN);
                 }
                 ik_satisficer::LimbNode::Terminus(t) => {
@@ -77,6 +86,12 @@ pub fn render_limb(mut query: Query<&mut IKSatisficerComponent>, mut gizmos: Giz
                 ik_satisficer::LimbNode::Limb(_) => todo!(),
             }
         }
-        gizmos.linestrip(joint_points, Color::ORANGE);
+        gizmos.linestrip(
+            joint_points
+                .iter()
+                .map(|x| *x + Vec3::new(0.01, 0.01, 0.01))
+                .collect_vec(),
+            Color::ORANGE,
+        );
     }
 }
