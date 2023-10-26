@@ -46,9 +46,7 @@ impl Limb {
                 // get current segment
                 let current = &mut self.segments[index];
                 // compute o-hat (current start minus current end) then normalize
-                let o_hat = (current.start - current.end).normalize();
-                // set current end to o_hat scaled by length of current segment
-                current.end = o_hat * current.length;
+                current.end = (current.start - current.end).normalize() * current.length;
                 //set next end to current start
                 let current_start = current.start.clone();
                 if let Some(ref mut next) = self.segments.get_mut(index + 1) {
@@ -59,10 +57,7 @@ impl Limb {
             for index in 0..len {
                 // get current segment
                 let current = &mut self.segments[index];
-                // calculate o_hat (current end minus current start, then normalized)
-                let o_hat = (current.end - current.start).normalize();
-                // current end is set to o_hat scaled by current length
-                current.end = o_hat * current.length;
+                current.start = (current.end - current.start).normalize() * current.length;
                 // set next start to current end
                 let current_end = current.end.clone();
                 if let Some(ref mut next) = self.segments.get_mut(index + 1) {

@@ -24,7 +24,7 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    let mut limb = Limb::new(4, 1, Vec3::new(5.0, 0.8, 0.0));
+    let mut limb = Limb::new(4, 1, Vec3::new(0.0, 0.8, 0.0));
     // i luv panicks 💜 php time
     limb.solve().unwrap();
     dbg!(&limb);
