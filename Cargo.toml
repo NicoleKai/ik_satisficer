@@ -1,5 +1,6 @@
 [workspace]
 resolver = "2"
 members = [
-  "ik_satisficer"
+  "ik_satisficer",
+  "visualizer"
 ]
