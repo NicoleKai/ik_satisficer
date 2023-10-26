@@ -14,16 +14,21 @@ pub enum LimbError {
 pub struct Limb(Vec<LimbNode>);
 
 impl Limb {
-    fn new(num_joints: usize) -> Self {
+    pub fn nodes(&self) -> &Vec<LimbNode> {
+        &self.0
+    }
+    pub fn new(num_joints: usize) -> Self {
         let mut v = Vec::new();
         v.push(LimbNode::Terminus(Terminus::new(
             TerminusType::Ground,
             Position::from(Vec3::ZERO),
         )));
+        v.push(LimbNode::Segment(Segment::new(1.0)));
         for i in 0..num_joints {
             v.push(LimbNode::Joint(Joint::new(Position::from(
                 Vec3::Y * i as f32,
             ))));
+            v.push(LimbNode::Segment(Segment::new(1.0)));
         }
         v.push(LimbNode::Terminus(Terminus::new(
             TerminusType::EndEffector,
@@ -152,6 +157,9 @@ pub enum MathState {
 }
 
 impl IKSatisficer {
+    pub fn nodes(&self) -> &Vec<LimbNode> {
+        &self.limb.nodes()
+    }
     pub fn new(bounce_iterations: usize, limb: Limb) -> Self {
         let len = limb.0.len();
         Self {

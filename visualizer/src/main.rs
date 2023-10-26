@@ -1,14 +1,17 @@
 //! Demonstrates how to work with Cubic curves.
 
+use std::process::exit;
+
 use bevy::{
     math::{cubic_splines::CubicCurve, vec3},
     prelude::*,
+    window::ExitCondition,
 };
 
-use ik_satisficer::{self, Limb, Positioned};
+use ik_satisficer::{self, IKSatisficer, Limb, Positioned};
 
 #[derive(Component)]
-pub struct LimbComponent(Limb);
+pub struct IKSatisficerComponent(IKSatisficer);
 
 fn main() {
     App::new()
@@ -24,7 +27,8 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     let limb = Limb::new(3);
-    commands.spawn(LimbComponent(limb));
+    let ik_satisficer = IKSatisficer::new(1, limb);
+    commands.spawn(IKSatisficerComponent(ik_satisficer));
 
     // Some light to see something
     commands.spawn(PointLightBundle {
@@ -52,16 +56,24 @@ fn setup(
     });
 }
 
-pub fn render_limb(mut query: Query<&LimbComponent>, mut gizmos: Gizmos) {
-    for limb_compnent in &mut query {
+pub fn render_limb(mut query: Query<&mut IKSatisficerComponent>, mut gizmos: Gizmos) {
+    for mut ik in &mut query {
+        let goal = Vec3::new(1.0, 1.0, 1.0);
+        dbg!(&ik.0.nodes());
+        ik.0.satisfice(goal.into()).unwrap();
+        dbg!(&ik.0.nodes());
+        exit(0);
+        gizmos.sphere(goal, Quat::default(), 0.3, Color::GREEN);
         let mut joint_points: Vec<Vec3> = Vec::new();
-        for node in limb_compnent.0.nodes() {
+        for node in ik.0.nodes() {
             match node {
                 ik_satisficer::LimbNode::Joint(j) => {
                     gizmos.sphere(j.pos().into(), Quat::default(), 0.15, Color::BLUE);
                     joint_points.push(j.pos().into());
                 }
-                ik_satisficer::LimbNode::Segment(_) => {}
+                ik_satisficer::LimbNode::Segment(s) => {
+                    // gizmos.sphere(s.pos().into(), Quat::default(), 0.1, Color::YELLOW_GREEN);
+                }
                 ik_satisficer::LimbNode::Terminus(t) => {
                     gizmos.sphere(t.pos().into(), Quat::default(), 0.2, Color::RED);
                 }
