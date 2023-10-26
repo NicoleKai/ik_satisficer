@@ -1,17 +1,18 @@
 use bevy_mod_picking::DefaultPickingPlugins;
 use bevy_transform_gizmo::TransformGizmoPlugin;
-use ik2::Limb;
+// use ik2::Limb;
 
 use bevy::prelude::*;
 
 // use ik_satisficer::{self, IKSatisficer, Limb, LimbNode, Positioned};
-use ik2;
+// use ik2;
+use ik3::{self, FabrikChain};
 use itertools::Itertools;
 
 // #[derive(Component)]
 // pub struct IKSatisficerComponent(IKSatisficer);
 #[derive(Component)]
-pub struct LimbComponent(Limb);
+pub struct ChainComponent(FabrikChain);
 
 fn main() {
     App::new()
@@ -36,12 +37,18 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    let mut limb = Limb::new(3, 5, Vec3::new(0.0, 0.0, 0.0));
+    let joints = vec![
+        Vec3::new(0.0, 0.0, 0.0),
+        Vec3::new(1.0, 0.0, 0.0),
+        Vec3::new(2.0, 0.0, 0.0),
+    ];
+    let chain = FabrikChain::new(joints);
+    // let mut limb = Limb::new(3, 5, Vec3::new(0.0, 0.0, 0.0));
     // i luv panicks 💜 php time
-    limb.solve().unwrap();
-    println!("{:?}", &limb);
+    // limb.solve().unwrap();
+    // println!("{:?}", &limb);
 
-    commands.spawn(LimbComponent(limb));
+    commands.spawn(ChainComponent(chain));
 
     // let ik_satisficer = IKSatisficer::new(1, limb);
     // commands.spawn(IKSatisficerComponent(ik_satisficer));
@@ -94,7 +101,7 @@ fn setup(
 
 fn recompute_limb(
     query_ball: Query<(&ControlBall, &Transform), Changed<Transform>>,
-    mut query_limb: Query<&mut LimbComponent>,
+    mut query_limb: Query<&mut ChainComponent>,
 ) {
     let Ok((_ball, new_target)) = query_ball.get_single() else {
         return;
@@ -106,7 +113,7 @@ fn recompute_limb(
         limb.0.solve().unwrap();
     }
 }
-pub fn render_limb(mut query: Query<&mut LimbComponent>, mut gizmos: Gizmos) {
+pub fn render_limb(mut query: Query<&mut ChainComponent>, mut gizmos: Gizmos) {
     for limb in &mut query {
         gizmos.sphere(limb.0.target, Quat::default(), 0.5, Color::GREEN);
         for segment in &limb.0.segments {
