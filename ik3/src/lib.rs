@@ -17,20 +17,14 @@ impl FabrikChain {
     }
 
     pub fn solve(&mut self, target: Vec3, iterations: usize) {
-        let mut effector = *self.joints.last().unwrap();
-
         for _ in 0..iterations {
-            // Backward
             self.joints.last_mut().unwrap().clone_from(&target);
-
             for i in (0..self.joints.len() - 1).rev() {
                 let direction = (self.joints[i] - self.joints[i + 1]).normalize();
                 self.joints[i] = self.joints[i + 1] + direction * self.lengths[i];
             }
 
-            // Forward
-            effector = self.joints[0];
-
+            self.joints.first_mut().unwrap().clone_from(&Vec3::ZERO);
             for i in 0..self.joints.len() - 1 {
                 let direction = (self.joints[i + 1] - self.joints[i]).normalize();
                 self.joints[i + 1] = self.joints[i] + direction * self.lengths[i];

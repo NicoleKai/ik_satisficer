@@ -41,6 +41,8 @@ fn setup(
         Vec3::new(0.0, 0.0, 0.0),
         Vec3::new(1.0, 0.0, 0.0),
         Vec3::new(2.0, 0.0, 0.0),
+        Vec3::new(3.0, 0.0, 0.0),
+        Vec3::new(4.0, 0.0, 0.0),
     ];
     let chain = FabrikChain::new(joints);
     // let mut limb = Limb::new(3, 5, Vec3::new(0.0, 0.0, 0.0));
@@ -101,30 +103,35 @@ fn setup(
 
 fn recompute_limb(
     query_ball: Query<(&ControlBall, &Transform), Changed<Transform>>,
-    mut query_limb: Query<&mut ChainComponent>,
+    mut query_chain: Query<&mut ChainComponent>,
 ) {
     let Ok((_ball, new_target)) = query_ball.get_single() else {
         return;
     };
 
-    for mut limb in query_limb.iter_mut() {
-        dbg!(&limb.0);
-        limb.0.target = new_target.translation;
-        limb.0.solve().unwrap();
+    for mut chain in query_chain.iter_mut() {
+        chain.0.solve(new_target.translation, 10);
+        // dbg!(&limb.0);
+        // limb.0.target = new_target.translation;
+        // limb.0.solve().unwrap();
     }
 }
 pub fn render_limb(mut query: Query<&mut ChainComponent>, mut gizmos: Gizmos) {
-    for limb in &mut query {
-        gizmos.sphere(limb.0.target, Quat::default(), 0.5, Color::GREEN);
-        for segment in &limb.0.segments {
-            gizmos.sphere(
-                segment.start - Vec3::splat(0.01),
-                Quat::default(),
-                0.1,
-                Color::BLUE,
-            );
-            gizmos.line(segment.start, segment.end, Color::ORANGE);
-            gizmos.sphere(segment.end, Quat::default(), 0.1, Color::RED);
+    for chain in &mut query {
+        for joint in &chain.0.joints {
+            gizmos.sphere(*joint, Quat::default(), 0.2, Color::ORANGE_RED);
         }
+        gizmos.linestrip(chain.0.joints.clone(), Color::ORANGE);
+        // gizmos.sphere(limb.0.target, Quat::default(), 0.5, Color::GREEN);
+        // for segment in &limb.0.segments {
+        //     gizmos.sphere(
+        //         segment.start - Vec3::splat(0.01),
+        //         Quat::default(),
+        //         0.1,
+        //         Color::BLUE,
+        //     );
+        //     gizmos.line(segment.start, segment.end, Color::ORANGE);
+        //     gizmos.sphere(segment.end, Quat::default(), 0.1, Color::RED);
+        // }
     }
 }
