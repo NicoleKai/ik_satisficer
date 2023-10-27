@@ -139,51 +139,23 @@ pub fn render_limb(mut query: Query<&mut ChainComponent>, mut gizmos: Gizmos) {
             let a = chain.0.joints[i];
             let b = chain.0.joints[i - 1];
 
-            let axis = (b - a).normalize();
-            let dominant_axis = match axis.abs() {
-                Vec3 { x, y, z } => {
-                    if x > y && x > z {
-                        0
-                    } else if y > x && y > z {
-                        1
-                    } else if z > x && z > y {
-                        2
-                    } else {
-                        panic!("wtf")
-                    }
-                }
-            };
-            let reference = match dominant_axis {
-                0 => Vec3::X,
-                1 => Vec3::Y,
-                _ => Vec3::Z,
-            };
-            let perpendicular = axis.cross(reference).normalize();
+            let ab_vector = b - a;
+            let ab_vector = ab_vector.normalize();
 
-            let angle = 90.0_f32.to_radians();
-            let quaternion = Quat::from_axis_angle(perpendicular, angle);
+            let world_axis = Vec3::new(0.0, 1.0, 0.0); // Y-axis as an example
 
-            gizmos.rect((a + b) / 2.0, quaternion, Vec2::splat(1.), Color::BLUE)
-            // let a = chain.0.joints[i];
-            // let b = chain.0.joints[i - 1];
+            // Cross to get a perpendicular vector
+            let perp_vector = ab_vector.cross(world_axis).normalize();
 
-            // let ab_vector = b - a;
-            // let ab_vector = ab_vector.normalize();
+            // Cross again to get a second perpendicular vector properly aligned
+            let perp_vector2 = ab_vector.cross(perp_vector).normalize();
 
-            // let world_axis = Vec3::new(0.0, 1.0, 0.0); // Y-axis as an example
+            // Create a quaternion from the perpendicular vector
+            let quaternion =
+                Quat::from_mat3(&Mat3::from_cols(ab_vector, perp_vector, perp_vector2))
+                    * Quat::from_rotation_y(90f32.to_radians());
 
-            // // Cross to get a perpendicular vector
-            // let perp_vector = ab_vector.cross(world_axis).normalize();
-
-            // // Cross again to get a second perpendicular vector properly aligned
-            // let perp_vector2 = ab_vector.cross(perp_vector).normalize();
-
-            // // Create a quaternion from the perpendicular vector
-            // let quaternion =
-            //     Quat::from_mat3(&Mat3::from_cols(ab_vector, perp_vector, perp_vector2))
-            //         * Quat::from_rotation_y(90f32.to_radians());
-
-            // gizmos.rect((a + b) / 2.0, quaternion, Vec2::splat(1.0), Color::BLUE);
+            gizmos.rect((a + b) / 2.0, quaternion, Vec2::splat(1.0), Color::BLUE);
 
             // let a = chain.0.joints[i];
             // let b = chain.0.joints[i - 1];
