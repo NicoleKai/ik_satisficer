@@ -138,18 +138,93 @@ pub fn render_limb(mut query: Query<&mut ChainComponent>, mut gizmos: Gizmos) {
         for i in 1..chain.0.joints.len() {
             let a = chain.0.joints[i];
             let b = chain.0.joints[i - 1];
-            let ab_vector = b - a;
-            let ab_vector = ab_vector.normalize();
 
-            let reference_vector = Vec3::Y;
-            let rotation_axis = reference_vector.cross(ab_vector).normalize();
+            let axis = (b - a).normalize();
+            let dominant_axis = match axis.abs() {
+                Vec3 { x, y, z } => {
+                    if x > y && x > z {
+                        0
+                    } else if y > x && y > z {
+                        1
+                    } else if z > x && z > y {
+                        2
+                    } else {
+                        panic!("wtf")
+                    }
+                }
+            };
+            let reference = match dominant_axis {
+                0 => Vec3::X,
+                1 => Vec3::Y,
+                _ => Vec3::Z,
+            };
+            let perpendicular = axis.cross(reference).normalize();
 
-            let cos_theta = reference_vector.dot(ab_vector);
-            let theta = cos_theta.acos();
+            let angle = 90.0_f32.to_radians();
+            let quaternion = Quat::from_axis_angle(perpendicular, angle);
 
-            let quaternion = Quat::from_axis_angle(rotation_axis, theta)
-                * Quat::from_rotation_x(90f32.to_radians());
             gizmos.rect((a + b) / 2.0, quaternion, Vec2::splat(1.), Color::BLUE)
+            // let a = chain.0.joints[i];
+            // let b = chain.0.joints[i - 1];
+
+            // let ab_vector = b - a;
+            // let ab_vector = ab_vector.normalize();
+
+            // let world_axis = Vec3::new(0.0, 1.0, 0.0); // Y-axis as an example
+
+            // // Cross to get a perpendicular vector
+            // let perp_vector = ab_vector.cross(world_axis).normalize();
+
+            // // Cross again to get a second perpendicular vector properly aligned
+            // let perp_vector2 = ab_vector.cross(perp_vector).normalize();
+
+            // // Create a quaternion from the perpendicular vector
+            // let quaternion =
+            //     Quat::from_mat3(&Mat3::from_cols(ab_vector, perp_vector, perp_vector2))
+            //         * Quat::from_rotation_y(90f32.to_radians());
+
+            // gizmos.rect((a + b) / 2.0, quaternion, Vec2::splat(1.0), Color::BLUE);
+
+            // let a = chain.0.joints[i];
+            // let b = chain.0.joints[i - 1];
+
+            // let ab_vector = b - a;
+            // let ab_vector = ab_vector.normalize();
+
+            // let theta = std::f32::consts::PI / 2.0; // 90 degrees in radians
+
+            // let quaternion = Quat::from_axis_angle(ab_vector, theta);
+
+            // gizmos.rect((a + b) / 2.0, quaternion, Vec2::splat(1.0), Color::BLUE);
+
+            // let ab_vector = b - a;
+            // let rotation_axis = ab_vector.normalize();
+
+            // let arbitrary_vector = if rotation_axis.x.abs() > 0.9 {
+            //     Vec3::new(0.0, 1.0, 0.0)
+            // } else {
+            //     Vec3::new(1.0, 0.0, 0.0)
+            // };
+
+            // let orthogonal_vector = rotation_axis.cross(arbitrary_vector).normalize();
+
+            // let reference_vector = Vec3::new(1.0, 0.0, 0.0);
+            // let quaternion = Quat::from_rotation_arc(reference_vector, orthogonal_vector);
+
+            // gizmos.rect((a + b) / 2.0, quaternion, Vec2::splat(1.0), Color::BLUE);
+
+            // let ab_vector = b - a;
+            // let ab_vector = ab_vector.normalize();
+
+            // let reference_vector = Vec3::Y;
+            // let rotation_axis = reference_vector.cross(ab_vector).normalize();
+
+            // let cos_theta = reference_vector.dot(ab_vector);
+            // let theta = cos_theta.acos();
+
+            // let quaternion = Quat::from_axis_angle(rotation_axis, theta);
+            // //  * Quat::from_rotation_x(90f32.to_radians());
+            // gizmos.rect((a + b) / 2.0, quaternion, Vec2::splat(1.), Color::BLUE)
         }
         // for i in 1..self.joints.len() {
         //     let a = self.joints[i + 1];
