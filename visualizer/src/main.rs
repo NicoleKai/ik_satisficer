@@ -116,11 +116,47 @@ fn recompute_limb(
         // limb.0.solve().unwrap();
     }
 }
+
+fn vec3_to_quat(vector: Vec3) -> Quat {
+    // Suppose your Vec3 is already normalized, as you mentioned.
+    let normalized_vector = vector.normalize();
+
+    // Create a quaternion based on axis-angle representation.
+    // Here we'll assume you want to rotate 90 degrees (or pi/2 radians) around your given axis.
+    let angle = std::f32::consts::PI / 2.0; // Replace this with the angle you actually want.
+    let quat = Quat::from_axis_angle(normalized_vector, angle);
+
+    quat
+}
+
 pub fn render_limb(mut query: Query<&mut ChainComponent>, mut gizmos: Gizmos) {
     for chain in &mut query {
         for joint in &chain.0.joints {
             gizmos.sphere(*joint, Quat::default(), 0.2, Color::ORANGE_RED);
         }
+
+        for i in 1..chain.0.joints.len() {
+            let a = chain.0.joints[i];
+            let b = chain.0.joints[i - 1];
+            let ab_vector = b - a;
+            let ab_vector = ab_vector.normalize();
+
+            let reference_vector = Vec3::Y;
+            let rotation_axis = reference_vector.cross(ab_vector).normalize();
+
+            let cos_theta = reference_vector.dot(ab_vector);
+            let theta = cos_theta.acos();
+
+            let quaternion = Quat::from_axis_angle(rotation_axis, theta)
+                * Quat::from_rotation_x(90f32.to_radians());
+            gizmos.rect((a + b) / 2.0, quaternion, Vec2::splat(1.), Color::BLUE)
+        }
+        // for i in 1..self.joints.len() {
+        //     let a = self.joints[i + 1];
+        //     let b = self.joints[i];
+        //     (b - a).
+        // }
+
         gizmos.linestrip(chain.0.joints.clone(), Color::ORANGE);
         // gizmos.sphere(limb.0.target, Quat::default(), 0.5, Color::GREEN);
         // for segment in &limb.0.segments {
