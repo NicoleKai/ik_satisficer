@@ -25,8 +25,10 @@ impl FabrikChain {
         for _ in 0..iterations {
             self.joints.last_mut().unwrap().clone_from(&target);
             for i in (0..self.joints.len() - 1).rev() {
-                let direction = (self.joints[i] - self.joints[i + 1]).normalize();
-                self.joints[i] = self.joints[i + 1] + direction * self.lengths[i];
+                let a = self.joints[i + 1];
+                let b = self.joints[i];
+                let direction = (b - a).normalize();
+                self.joints[i] = a + direction * self.lengths[i];
             }
 
             self.joints.first_mut().unwrap().clone_from(&Vec3::ZERO);
