@@ -4,6 +4,7 @@ use bevy_math::Vec3;
 pub struct FabrikChain {
     pub joints: Vec<Vec3>,
     pub lengths: Vec<f32>,
+    pub angles: Vec<f32>,
 }
 
 impl FabrikChain {
@@ -13,7 +14,11 @@ impl FabrikChain {
             let length = joints[i].distance(joints[i - 1]);
             lengths.push(length);
         }
-        Self { joints, lengths }
+        Self {
+            joints,
+            lengths,
+            angles: Vec::new(),
+        }
     }
 
     pub fn solve(&mut self, target: Vec3, iterations: usize) {
@@ -29,6 +34,13 @@ impl FabrikChain {
                 let direction = (self.joints[i + 1] - self.joints[i]).normalize();
                 self.joints[i + 1] = self.joints[i] + direction * self.lengths[i];
             }
+        }
+        self.angles.clear();
+        for i in 2..self.joints.len() {
+            let a = self.joints[i - 2];
+            let b = self.joints[i - 1];
+            let c = self.joints[i];
+            self.angles.push(dbg!((a - b).angle_between(c - b)));
         }
     }
 }

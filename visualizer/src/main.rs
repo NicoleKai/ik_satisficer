@@ -111,22 +111,11 @@ fn recompute_limb(
 
     for mut chain in query_chain.iter_mut() {
         chain.0.solve(new_target.translation, 10);
+        dbg!(&chain.0.angles);
         // dbg!(&limb.0);
         // limb.0.target = new_target.translation;
         // limb.0.solve().unwrap();
     }
-}
-
-fn vec3_to_quat(vector: Vec3) -> Quat {
-    // Suppose your Vec3 is already normalized, as you mentioned.
-    let normalized_vector = vector.normalize();
-
-    // Create a quaternion based on axis-angle representation.
-    // Here we'll assume you want to rotate 90 degrees (or pi/2 radians) around your given axis.
-    let angle = std::f32::consts::PI / 2.0; // Replace this with the angle you actually want.
-    let quat = Quat::from_axis_angle(normalized_vector, angle);
-
-    quat
 }
 
 pub fn render_limb(mut query: Query<&mut ChainComponent>, mut gizmos: Gizmos) {
