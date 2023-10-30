@@ -5,6 +5,7 @@ pub struct FabrikChain {
     pub joints: Vec<Vec3>,
     pub lengths: Vec<f32>,
     pub angles: Vec<f32>,
+    pub prev_angles: Vec<f32>,
 }
 
 impl FabrikChain {
@@ -17,6 +18,7 @@ impl FabrikChain {
         Self {
             joints,
             lengths,
+            prev_angles: Vec::new(),
             angles: Vec::new(),
         }
     }
@@ -39,12 +41,13 @@ impl FabrikChain {
                 self.joints[i + 1] = a + direction * self.lengths[i];
             }
         }
+        std::mem::swap(&mut self.angles, &mut self.prev_angles);
         self.angles.clear();
         for i in 2..self.joints.len() {
             let a = self.joints[i - 2];
             let b = self.joints[i - 1];
             let c = self.joints[i];
-            self.angles.push(dbg!((a - b).angle_between(c - b)));
+            self.angles.push((a - b).angle_between(c - b));
         }
     }
 }
