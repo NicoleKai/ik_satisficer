@@ -224,48 +224,69 @@ pub fn render_limb(mut query: Query<&mut ChainComponent>, mut gizmos: Gizmos) {
     }
 }
 
+// fn display_ui(mut context: EguiContexts, mut query: Query<&mut VelocityDisplay>) {
+//     egui::Window::new("Limb Control").show(context.ctx_mut(), |ui| {
+//         for velocity_display in query.iter() {
+//             // velocity display is [angle velocity][time]
+//             // while we need [time][angle velocity]
+//             let mut velocities: Vec<Vec<[f64; 2]>> = Vec::new();
+//             let Some(first_len) = velocity_display.0.first().map(|x| x.len()) else {
+//                 return;
+//             };
+//             for _ in 0..first_len {
+//                 velocities.push(Vec::new());
+//             }
+//             for x in 0..velocity_display.0.len() {
+//                 for y in 0..velocity_display.0[x].len() {
+//                     let new_point = [x as f64, velocity_display.0[x][y] as f64];
+//                     match velocities.get_mut(y) {
+//                         Some(y_ptr) => {
+//                             y_ptr.push(new_point);
+//                         }
+//                         None => {
+//                             velocities.push(vec![new_point]);
+//                         }
+//                     }
+//                 }
+//             }
+//             let velocities = velocities
+//                 .into_iter()
+//                 .map(|x| PlotPoints::new(x))
+//                 .collect_vec();
+//             let lines = velocities.into_iter().map(|x| Line::new(x)).collect_vec();
+
+//             Plot::new("velocity").view_aspect(2.0).show(ui, |plot_ui| {
+//                 for line in lines {
+//                     plot_ui.line(line);
+//                 }
+//             });
+//         }
+//     });
+// }
 fn display_ui(mut context: EguiContexts, mut query: Query<&mut VelocityDisplay>) {
     egui::Window::new("Limb Control").show(context.ctx_mut(), |ui| {
-        // let sin: PlotPoints = (0..1000)
-        //     .map(|i| {
-        //         let x = i as f64 * 0.01;
-        //         [x, x.sin()]
-        //     })
-        //     .collect();
         for velocity_display in query.iter() {
-            // velocity display is [angle velocity][time]
-            // while we need [time][angle velocity]
-            let mut velocities: Vec<Vec<[f64; 2]>> = Vec::new();
-            let Some(first_len) = velocity_display.0.first().map(|x| x.len()) else {
-                return;
-            };
-            for _ in 0..first_len {
-                velocities.push(Vec::new());
-            }
-            for x in 0..velocity_display.0.len() {
-                for y in 0..velocity_display.0[x].len() {
-                    let new_point = [x as f64, velocity_display.0[x][y] as f64];
-                    match velocities.get_mut(y) {
-                        Some(y_ptr) => {
-                            y_ptr.push(new_point);
-                        }
-                        None => {
-                            velocities.push(vec![new_point]);
-                        }
+            if let Some(first_len) = velocity_display.0.first().map(|x| x.len()) {
+                let mut velocities: Vec<Vec<[f64; 2]>> = vec![Vec::new(); first_len];
+
+                for (x, x_values) in velocity_display.0.iter().enumerate() {
+                    for (y, &y_value) in x_values.iter().enumerate() {
+                        let new_point = [x as f64, y_value as f64];
+                        velocities[y].push(new_point);
                     }
                 }
-            }
-            let velocities = velocities
-                .into_iter()
-                .map(|x| PlotPoints::new(x))
-                .collect_vec();
-            let lines = velocities.into_iter().map(|x| Line::new(x)).collect_vec();
 
-            Plot::new("velocity").view_aspect(2.0).show(ui, |plot_ui| {
-                for line in lines {
-                    plot_ui.line(line);
-                }
-            });
+                let lines = velocities
+                    .into_iter()
+                    .map(|x| Line::new(PlotPoints::new(x)))
+                    .collect_vec();
+
+                Plot::new("velocity").view_aspect(2.0).show(ui, |plot_ui| {
+                    for line in lines {
+                        plot_ui.line(line);
+                    }
+                });
+            }
         }
     });
 }
