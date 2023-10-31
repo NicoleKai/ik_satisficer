@@ -1,3 +1,5 @@
+use std::time::{Duration, SystemTime};
+
 use bevy_math::Vec3;
 
 #[derive(Debug, Clone)]
@@ -6,6 +8,7 @@ pub struct FabrikChain {
     pub lengths: Vec<f32>,
     pub angles: Vec<f32>,
     pub prev_angles: Vec<f32>,
+    pub prev_time: SystemTime,
 }
 
 impl FabrikChain {
@@ -20,6 +23,7 @@ impl FabrikChain {
             lengths,
             prev_angles: Vec::new(),
             angles: Vec::new(),
+            prev_time: std::time::SystemTime::now(),
         }
     }
 
@@ -47,7 +51,20 @@ impl FabrikChain {
             let a = self.joints[i - 2];
             let b = self.joints[i - 1];
             let c = self.joints[i];
-            self.angles.push((a - b).angle_between(c - b));
+            let angle = (a - b).angle_between(c - b);
+            self.angles.push(angle);
+        }
+        let frame_delta_time = self
+            .prev_time
+            .elapsed()
+            .expect("Could not get elapsed time");
+        self.prev_time = std::time::SystemTime::now();
+
+        for i in 0..self.prev_angles.len() {
+            println!(
+                "{}",
+                (self.angles[i] - self.prev_angles[i]) / (frame_delta_time.as_micros() as f32)
+            );
         }
     }
 }

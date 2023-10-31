@@ -30,7 +30,7 @@ impl Limb {
                 length: 1.0,
             });
         }
-        dbg!(&segments);
+        // dbg!(&segments);
         Self {
             segments,
             target,
@@ -39,7 +39,7 @@ impl Limb {
     }
     pub fn solve(&mut self) -> Result<(), SolveError> {
         let len = self.segments.len();
-        dbg!(&len);
+        // dbg!(&len);
         for _bounce in 0..self.bounces {
             (*self.segments.last_mut().context(EmptyLimbSnafu)?).end = self.target;
 

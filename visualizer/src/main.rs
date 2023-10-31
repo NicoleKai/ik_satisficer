@@ -111,8 +111,8 @@ fn recompute_limb(
 
     for mut chain in query_chain.iter_mut() {
         chain.0.solve(new_target.translation, 10);
-        dbg!(&chain.0.angles);
-        dbg!(&chain.0.prev_angles);
+        // dbg!(&chain.0.angles);
+        // dbg!(&chain.0.prev_angles);
         // dbg!(&limb.0);
         // limb.0.target = new_target.translation;
         // limb.0.solve().unwrap();
