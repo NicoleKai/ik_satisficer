@@ -10,6 +10,7 @@ pub struct FabrikChain {
     pub prev_angles: Vec<f32>,
     pub angular_velocities: Vec<f32>,
     pub prev_time: SystemTime,
+    initial_state: Option<Box<Self>>,
 }
 
 impl FabrikChain {
@@ -19,14 +20,31 @@ impl FabrikChain {
             let length = joints[i].distance(joints[i - 1]);
             lengths.push(length);
         }
-        Self {
+        let new_self = Self {
             joints,
             lengths,
             prev_angles: Vec::new(),
             angles: Vec::new(),
             angular_velocities: Vec::new(),
             prev_time: std::time::SystemTime::now(),
+            initial_state: None,
+        };
+
+        Self {
+            initial_state: Some(Box::new(new_self.clone())),
+            ..new_self
         }
+    }
+
+    pub fn reset(&mut self) {
+        let initial_state = self
+            .initial_state
+            .clone()
+            .expect("initial state should not be blank");
+        *self = Self {
+            initial_state: Some(initial_state.clone()),
+            ..*initial_state
+        };
     }
 
     pub fn solve(&mut self, target: Vec3, iterations: usize) {

@@ -37,7 +37,9 @@ fn main() {
 }
 
 #[derive(Component)]
-struct ControlBall;
+struct ControlBall {
+    default_transform: Transform,
+}
 
 fn setup(
     mut commands: Commands,
@@ -51,6 +53,7 @@ fn setup(
         Vec3::new(3.0, 0.0, 0.0),
         Vec3::new(4.0, 0.0, 0.0),
     ];
+    let ctrl_point_pos = joints.last().cloned().expect("No pos");
     let chain = FabrikChain::new(joints);
     // let mut limb = Limb::new(3, 5, Vec3::new(0.0, 0.0, 0.0));
     // i luv panicks 💜 php time
@@ -89,7 +92,9 @@ fn setup(
         bevy_mod_picking::PickableBundle::default(),
         bevy_mod_picking::backends::raycast::RaycastPickTarget::default(),
         bevy_transform_gizmo::GizmoTransformable,
-        ControlBall,
+        ControlBall {
+            default_transform: Transform::from_translation(ctrl_point_pos),
+        },
     ));
     // // ground plane
     // commands.spawn(PbrBundle {
@@ -117,20 +122,16 @@ fn recompute_limb(
     let Ok((_ball, new_target)) = query_ball.get_single() else {
         return;
     };
+    dbg!(&new_target);
 
     for mut chain in query_chain.iter_mut() {
         chain.0.solve(new_target.translation, 10);
-        for i in 0..chain.0.angular_velocities.len() {
+        if !chain.0.angular_velocities.is_empty() {
             query_velocity_display
                 .single_mut()
                 .0
                 .push(chain.0.angular_velocities.clone());
         }
-        // dbg!(&chain.0.angles);
-        // dbg!(&chain.0.prev_angles);
-        // dbg!(&limb.0);
-        // limb.0.target = new_target.translation;
-        // limb.0.solve().unwrap();
     }
 }
 
@@ -165,27 +166,45 @@ pub fn render_limb(mut query: Query<&mut ChainComponent>, mut gizmos: Gizmos) {
         gizmos.linestrip(chain.0.joints.clone(), Color::ORANGE);
     }
 }
-fn display_ui(mut context: EguiContexts, mut query: Query<&mut VelocityDisplay>) {
+
+fn display_ui(
+    mut context: EguiContexts,
+    mut query: Query<&mut VelocityDisplay>,
+    mut query_chain: Query<&mut ChainComponent>,
+) {
     egui::Window::new("Limb Control").show(context.ctx_mut(), |ui| {
-        let velocity_display = &mut query.single_mut();
+        let mut velocity_display = query.single_mut();
         if ui.button("Reset graph").clicked() {
             velocity_display.0.clear();
         }
+        if ui.button("Reset all").clicked() {
+            velocity_display.0.clear();
+            query_chain.single_mut().0.reset();
+        }
         ui.separator();
+        // velocity display is [angle velocity][time]
+        // while we need [time][angle velocity]
+        let mut velocities: Vec<Vec<[f64; 2]>> = Vec::new();
         if let Some(first_len) = velocity_display.0.first().map(|x| x.len()) {
-            let mut velocities: Vec<Vec<[f64; 2]>> = vec![Vec::new(); first_len];
-
-            for (x, x_values) in velocity_display.0.iter().enumerate() {
-                for (y, &y_value) in x_values.iter().enumerate() {
-                    let new_point = [x as f64, y_value as f64];
-                    velocities[y].push(new_point);
+            for _ in 0..first_len {
+                velocities.push(Vec::new());
+            }
+            for x in 0..velocity_display.0.len() {
+                for y in 0..velocity_display.0[x].len() {
+                    let new_point = [x as f64, velocity_display.0[x][y] as f64];
+                    match velocities.get_mut(y) {
+                        Some(y_ptr) => {
+                            y_ptr.push(new_point);
+                        }
+                        None => {
+                            velocities.push(vec![new_point]);
+                        }
+                    }
                 }
             }
-
             let lines = velocities
                 .into_iter()
-                .map(|x| Line::new(PlotPoints::new(x)))
-                .collect_vec();
+                .map(|x| Line::new(PlotPoints::new(x)));
 
             Plot::new("velocity").view_aspect(2.0).show(ui, |plot_ui| {
                 for line in lines {
