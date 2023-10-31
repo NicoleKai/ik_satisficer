@@ -10,6 +10,8 @@ pub struct FabrikChain {
     pub prev_angles: Vec<f32>,
     pub angular_velocities: Vec<f32>,
     pub prev_time: SystemTime,
+    // FIXME: first reading computation will be way off, start with prev_time option being none, and set it to some
+    // so as to skip the first computation frame
     initial_state: Option<Box<Self>>,
 }
 
@@ -34,6 +36,10 @@ impl FabrikChain {
             initial_state: Some(Box::new(new_self.clone())),
             ..new_self
         }
+    }
+
+    pub fn get_ee(&self) -> &Vec3 {
+        self.joints.last().expect("Joints should not be empty")
     }
 
     pub fn reset(&mut self) {

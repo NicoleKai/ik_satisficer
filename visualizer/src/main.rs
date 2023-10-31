@@ -37,9 +37,7 @@ fn main() {
 }
 
 #[derive(Component)]
-struct ControlBall {
-    default_transform: Transform,
-}
+struct ControlBall;
 
 fn setup(
     mut commands: Commands,
@@ -55,16 +53,9 @@ fn setup(
     ];
     let ctrl_point_pos = joints.last().cloned().expect("No pos");
     let chain = FabrikChain::new(joints);
-    // let mut limb = Limb::new(3, 5, Vec3::new(0.0, 0.0, 0.0));
-    // i luv panicks 💜 php time
-    // limb.solve().unwrap();
-    // println!("{:?}", &limb);
-
+    let ee = chain.get_ee().to_owned();
     commands.spawn(ChainComponent(chain));
     commands.spawn(VelocityDisplay::default());
-
-    // let ik_satisficer = IKSatisficer::new(1, limb);
-    // commands.spawn(IKSatisficerComponent(ik_satisficer));
 
     // Some light to see something
     commands.spawn(PointLightBundle {
@@ -87,14 +78,13 @@ fn setup(
         PbrBundle {
             mesh,
             material,
+            transform: Transform::from_translation(ee),
             ..Default::default()
         },
         bevy_mod_picking::PickableBundle::default(),
         bevy_mod_picking::backends::raycast::RaycastPickTarget::default(),
         bevy_transform_gizmo::GizmoTransformable,
-        ControlBall {
-            default_transform: Transform::from_translation(ctrl_point_pos),
-        },
+        ControlBall,
     ));
     // // ground plane
     // commands.spawn(PbrBundle {
@@ -122,7 +112,6 @@ fn recompute_limb(
     let Ok((_ball, new_target)) = query_ball.get_single() else {
         return;
     };
-    dbg!(&new_target);
 
     for mut chain in query_chain.iter_mut() {
         chain.0.solve(new_target.translation, 10);
@@ -171,6 +160,7 @@ fn display_ui(
     mut context: EguiContexts,
     mut query: Query<&mut VelocityDisplay>,
     mut query_chain: Query<&mut ChainComponent>,
+    mut query_ball: Query<(&ControlBall, &mut Transform)>,
 ) {
     egui::Window::new("Limb Control").show(context.ctx_mut(), |ui| {
         let mut velocity_display = query.single_mut();
@@ -180,6 +170,9 @@ fn display_ui(
         if ui.button("Reset all").clicked() {
             velocity_display.0.clear();
             query_chain.single_mut().0.reset();
+
+            *query_ball.single_mut().1 =
+                Transform::from_translation(query_chain.single().0.get_ee().to_owned());
         }
         ui.separator();
         // velocity display is [angle velocity][time]
