@@ -161,34 +161,39 @@ pub fn render_limb(mut query: Query<&mut ChainComponent>, mut gizmos: Gizmos) {
                     * Quat::from_rotation_y(90f32.to_radians());
 
             gizmos.rect((a + b) / 2.0, quaternion, Vec2::splat(1.0), Color::BLUE);
-
+        }
         gizmos.linestrip(chain.0.joints.clone(), Color::ORANGE);
     }
 }
 fn display_ui(mut context: EguiContexts, mut query: Query<&mut VelocityDisplay>) {
     egui::Window::new("Limb Control").show(context.ctx_mut(), |ui| {
-        for velocity_display in query.iter() {
-            if let Some(first_len) = velocity_display.0.first().map(|x| x.len()) {
-                let mut velocities: Vec<Vec<[f64; 2]>> = vec![Vec::new(); first_len];
+        let velocity_display = &mut query.single_mut();
+        if ui.button("Reset graph").clicked() {
+            velocity_display.0.clear();
+        }
+        ui.separator();
+        if let Some(first_len) = velocity_display.0.first().map(|x| x.len()) {
+            let mut velocities: Vec<Vec<[f64; 2]>> = vec![Vec::new(); first_len];
 
-                for (x, x_values) in velocity_display.0.iter().enumerate() {
-                    for (y, &y_value) in x_values.iter().enumerate() {
-                        let new_point = [x as f64, y_value as f64];
-                        velocities[y].push(new_point);
-                    }
+            for (x, x_values) in velocity_display.0.iter().enumerate() {
+                for (y, &y_value) in x_values.iter().enumerate() {
+                    let new_point = [x as f64, y_value as f64];
+                    velocities[y].push(new_point);
                 }
-
-                let lines = velocities
-                    .into_iter()
-                    .map(|x| Line::new(PlotPoints::new(x)))
-                    .collect_vec();
-
-                Plot::new("velocity").view_aspect(2.0).show(ui, |plot_ui| {
-                    for line in lines {
-                        plot_ui.line(line);
-                    }
-                });
             }
+
+            let lines = velocities
+                .into_iter()
+                .map(|x| Line::new(PlotPoints::new(x)))
+                .collect_vec();
+
+            Plot::new("velocity").view_aspect(2.0).show(ui, |plot_ui| {
+                for line in lines {
+                    plot_ui.line(line);
+                }
+            });
+        } else {
+            ui.label("NO DATA");
         }
     });
 }
