@@ -1,9 +1,11 @@
+use bevy_egui::EguiContexts;
 use bevy_mod_picking::DefaultPickingPlugins;
 use bevy_transform_gizmo::TransformGizmoPlugin;
 // use ik2::Limb;
 
-use bevy::prelude::*;
+use bevy::{ecs::schedule::ScheduleGraph, prelude::*};
 
+use egui_plot::{BoxPlot, Line, Plot, PlotPoint, PlotPoints, PlotUi};
 // use ik_satisficer::{self, IKSatisficer, Limb, LimbNode, Positioned};
 // use ik2;
 use ik3::{self, FabrikChain};
@@ -14,11 +16,15 @@ use itertools::Itertools;
 #[derive(Component)]
 pub struct ChainComponent(FabrikChain);
 
+#[derive(Component, Default)]
+pub struct VelocityDisplay(Vec<Vec<f32>>);
+
 fn main() {
     App::new()
         .add_plugins((
             DefaultPlugins,
             DefaultPickingPlugins,
+            bevy_egui::EguiPlugin,
             TransformGizmoPlugin::default(),
         ))
         .insert_resource(Msaa::Sample4)
@@ -26,6 +32,7 @@ fn main() {
         .add_systems(Startup, setup)
         .add_systems(Update, recompute_limb)
         .add_systems(Update, render_limb)
+        .add_systems(Update, display_ui)
         .run();
 }
 
@@ -51,6 +58,7 @@ fn setup(
     // println!("{:?}", &limb);
 
     commands.spawn(ChainComponent(chain));
+    commands.spawn(VelocityDisplay::default());
 
     // let ik_satisficer = IKSatisficer::new(1, limb);
     // commands.spawn(IKSatisficerComponent(ik_satisficer));
@@ -104,6 +112,7 @@ fn setup(
 fn recompute_limb(
     query_ball: Query<(&ControlBall, &Transform), Changed<Transform>>,
     mut query_chain: Query<&mut ChainComponent>,
+    mut query_velocity_display: Query<&mut VelocityDisplay>,
 ) {
     let Ok((_ball, new_target)) = query_ball.get_single() else {
         return;
@@ -111,6 +120,12 @@ fn recompute_limb(
 
     for mut chain in query_chain.iter_mut() {
         chain.0.solve(new_target.translation, 10);
+        for i in 0..chain.0.angular_velocities.len() {
+            query_velocity_display
+                .single_mut()
+                .0
+                .push(chain.0.angular_velocities.clone());
+        }
         // dbg!(&chain.0.angles);
         // dbg!(&chain.0.prev_angles);
         // dbg!(&limb.0);
@@ -207,4 +222,50 @@ pub fn render_limb(mut query: Query<&mut ChainComponent>, mut gizmos: Gizmos) {
         //     gizmos.sphere(segment.end, Quat::default(), 0.1, Color::RED);
         // }
     }
+}
+
+fn display_ui(mut context: EguiContexts, mut query: Query<&mut VelocityDisplay>) {
+    egui::Window::new("Limb Control").show(context.ctx_mut(), |ui| {
+        // let sin: PlotPoints = (0..1000)
+        //     .map(|i| {
+        //         let x = i as f64 * 0.01;
+        //         [x, x.sin()]
+        //     })
+        //     .collect();
+        for velocity_display in query.iter() {
+            // velocity display is [angle velocity][time]
+            // while we need [time][angle velocity]
+            let mut velocities: Vec<Vec<[f64; 2]>> = Vec::new();
+            let Some(first_len) = velocity_display.0.first().map(|x| x.len()) else {
+                return;
+            };
+            for _ in 0..first_len {
+                velocities.push(Vec::new());
+            }
+            for x in 0..velocity_display.0.len() {
+                for y in 0..velocity_display.0[x].len() {
+                    let new_point = [x as f64, velocity_display.0[x][y] as f64];
+                    match velocities.get_mut(y) {
+                        Some(y_ptr) => {
+                            y_ptr.push(new_point);
+                        }
+                        None => {
+                            velocities.push(vec![new_point]);
+                        }
+                    }
+                }
+            }
+            let velocities = velocities
+                .into_iter()
+                .map(|x| PlotPoints::new(x))
+                .collect_vec();
+            let lines = velocities.into_iter().map(|x| Line::new(x)).collect_vec();
+
+            Plot::new("velocity").view_aspect(2.0).show(ui, |plot_ui| {
+                for line in lines {
+                    plot_ui.line(line);
+                }
+            });
+        }
+    });
 }

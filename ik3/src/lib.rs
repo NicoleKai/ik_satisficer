@@ -8,6 +8,7 @@ pub struct FabrikChain {
     pub lengths: Vec<f32>,
     pub angles: Vec<f32>,
     pub prev_angles: Vec<f32>,
+    pub angular_velocities: Vec<f32>,
     pub prev_time: SystemTime,
 }
 
@@ -23,6 +24,7 @@ impl FabrikChain {
             lengths,
             prev_angles: Vec::new(),
             angles: Vec::new(),
+            angular_velocities: Vec::new(),
             prev_time: std::time::SystemTime::now(),
         }
     }
@@ -60,10 +62,10 @@ impl FabrikChain {
             .expect("Could not get elapsed time");
         self.prev_time = std::time::SystemTime::now();
 
+        self.angular_velocities.clear();
         for i in 0..self.prev_angles.len() {
-            println!(
-                "{}",
-                (self.angles[i] - self.prev_angles[i]) / (frame_delta_time.as_micros() as f32)
+            self.angular_velocities.push(
+                (self.angles[i] - self.prev_angles[i]) / (frame_delta_time.as_micros() as f32),
             );
         }
     }

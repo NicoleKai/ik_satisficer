@@ -11,6 +11,7 @@ bevy_egui = "0.22.0"
 bevy_mod_picking = "0.15.0"
 bevy_transform_gizmo = "0.8.0"
 egui = "0.23.0"
+egui_plot = "0.23.0"
 # ik_satisficer = { path = "../ik_satisficer" }
 # ik2 = { path = "../ik2" }
 ik3 = { path = "../ik3" }
