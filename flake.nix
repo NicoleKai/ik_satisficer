@@ -62,6 +62,9 @@
                        -c commiter.name=$name \
                        -c commiter.email=$email "$@"
             '')            
+            (pkgs.writeShellScriptBin "build" ''
+              cargo run --features bevy/dynamic_linking
+            '')
            ];
         });
       }

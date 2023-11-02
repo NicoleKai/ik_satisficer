@@ -8,13 +8,10 @@ use bevy_transform_gizmo::{
     GizmoTransformable, GizmoUpdate, RotationOriginOffset, TransformGizmoEvent,
     TransformGizmoPlugin,
 };
-// use ik2::Limb;
 
 use bevy::{ecs::schedule::ScheduleGraph, prelude::*};
 
 use egui_plot::{BoxPlot, Line, Plot, PlotPoint, PlotPoints, PlotUi};
-// use ik_satisficer::{self, IKSatisficer, Limb, LimbNode, Positioned};
-// use ik2;
 use ik3::{self, FabrikChain};
 use itertools::Itertools;
 
