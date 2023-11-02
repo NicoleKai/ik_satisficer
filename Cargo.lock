@@ -1085,7 +1085,7 @@ dependencies = [
 [[package]]
 name = "bevy_transform_gizmo"
 version = "0.8.0"
-source = "git+https://github.com/Exobody/bevy_transform_gizmo.git#61929b0caab14136890b53cb60575b80cffe7789"
+source = "git+https://github.com/Exobody/bevy_transform_gizmo.git#c7c7bc6c781ed50cf3c02284b551ebaca0929e68"
 dependencies = [
  "bevy",
  "bevy_mod_picking",

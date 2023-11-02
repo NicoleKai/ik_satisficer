@@ -78,7 +78,9 @@ struct Segment {
 }
 
 #[derive(Event, Default)]
-struct SyncTransforms;
+struct SyncTransforms {
+    exclude: Vec<Entity>,
+}
 
 #[derive(Bundle, Default)]
 struct ControlBallBundle {
@@ -229,38 +231,43 @@ fn sync_segment_transform(
 }
 
 fn recompute_limb(
-    query_ctrl_ball: Query<(&ControlBall, &Transform)>,
+    query_ctrl_ball: Query<(Entity, &ControlBall, &Transform)>,
     mut query_chain: Query<&mut ChainComponent>,
     mut query_velocity_display: Query<&mut VelocityDisplay>,
     mut ev_gizmo: EventReader<GizmoUpdate>,
     mut ev_sync_transforms: EventWriter<SyncTransforms>,
 ) {
-    let mut excluded: Vec<usize> = Vec::new();
-    if ev_gizmo.is_empty() {
-        return;
-    }
-
-    let mut chain = query_chain.single_mut();
-    chain.0.targets.clear();
     for event in ev_gizmo.iter() {
-        let (ball, transform) = query_ctrl_ball
-            .get(event.entity)
-            .expect("Something is moving but it's not a ball!");
-        excluded.push(ball.index);
-        chain
-            .0
-            .targets
-            .push((ball.index, transform.translation.clone()));
-    }
+        match event.clone() {
+            GizmoUpdate::Drag {
+                entity,
+                interaction,
+            } => {
+                let mut excluded: Vec<Entity> = Vec::new();
 
-    chain.0.solve(10);
+                let mut chain = query_chain.single_mut();
+                chain.0.targets.clear();
+                let (entity, ball, transform) = query_ctrl_ball
+                    .get(entity)
+                    .expect("Something is moving but it's not a ball!");
+                excluded.push(entity);
+                chain
+                    .0
+                    .targets
+                    .push((ball.index, transform.translation.clone()));
 
-    ev_sync_transforms.send_default();
-    if !chain.0.angular_velocities.is_empty() {
-        query_velocity_display
-            .single_mut()
-            .0
-            .push(chain.0.angular_velocities.clone());
+                chain.0.solve(10);
+
+                ev_sync_transforms.send_default();
+                if !chain.0.angular_velocities.is_empty() {
+                    query_velocity_display
+                        .single_mut()
+                        .0
+                        .push(chain.0.angular_velocities.clone());
+                }
+            }
+            _ => {}
+        }
     }
 }
 
