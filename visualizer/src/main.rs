@@ -1,6 +1,9 @@
 use bevy_egui::EguiContexts;
-use bevy_mod_picking::DefaultPickingPlugins;
-use bevy_transform_gizmo::TransformGizmoPlugin;
+use bevy_mod_picking::{
+    prelude::{Drag, Move, Pointer},
+    DefaultPickingPlugins,
+};
+use bevy_transform_gizmo::{GizmoTransformable, TransformGizmoPlugin};
 // use ik2::Limb;
 
 use bevy::{ecs::schedule::ScheduleGraph, prelude::*};
@@ -53,9 +56,7 @@ fn setup(
         Vec3::new(3.0, 0.0, 0.0),
         Vec3::new(4.0, 0.0, 0.0),
     ];
-    let ctrl_point_pos = joints.last().cloned().expect("No pos");
     let chain = FabrikChain::new(joints);
-    let ee = chain.get_ee().to_owned();
     commands.spawn(VelocityDisplay::default());
 
     // Some light to see something
@@ -109,22 +110,55 @@ fn setup(
 }
 
 fn recompute_limb(
-    query_ball: Query<(&ControlBall, &Transform), Changed<Transform>>,
+    query_ball: Query<&ControlBall>,
     mut query_chain: Query<&mut ChainComponent>,
     mut query_velocity_display: Query<&mut VelocityDisplay>,
+    mut event: EventReader<Pointer<Move>>,
 ) {
-    for (ball, new_target) in query_ball.iter() {
-        for mut chain in query_chain.iter_mut() {
-            chain.0.joints[ball.id].clone_from(&new_target.translation);
-            chain.0.solve(10);
-            if !chain.0.angular_velocities.is_empty() {
-                query_velocity_display
-                    .single_mut()
-                    .0
-                    .push(chain.0.angular_velocities.clone());
+    for event in event.iter() {
+        match query_ball.get(event.target) {
+            // Ok((ball, new_target)) => {
+            //     for mut chain in query_chain.iter_mut() {
+            //         chain.0.joints[ball.id].clone_from(&new_target.translation);
+            //         chain.0.solve(10);
+            //         if !chain.0.angular_velocities.is_empty() {
+            //             query_velocity_display
+            //                 .single_mut()
+            //                 .0
+            //                 .push(chain.0.angular_velocities.clone());
+            //         }
+            //     }
+            // }
+            Ok(_) => {}
+            Err(e) => {
+                eprintln!("WARNING: could not retrieve target for {}: {}", &event, e);
             }
         }
+        // if let Some(control_ball) = world.get::<Transform>(event.target) {
+        //     for mut chain in query_chain.iter_mut() {
+        //         chain.0.joints[ball.id].clone_from(&new_target.translation);
+        //         chain.0.solve(10);
+        //         if !chain.0.angular_velocities.is_empty() {
+        //             query_velocity_display
+        //                 .single_mut()
+        //                 .0
+        //                 .push(chain.0.angular_velocities.clone());
+        //         }
+        //     }
+        // }
     }
+    // for (ball, new_target) in query_ball.iter() {
+    //     for mut chain in query_chain.iter_mut() {
+    //         chain.0.joints[ball.id].clone_from(&new_target.translation);
+    //         chain.0.solve(10);
+    //         if !chain.0.angular_velocities.is_empty() {
+    //             query_velocity_display
+    //                 .single_mut()
+    //                 .0
+    //                 .push(chain.0.angular_velocities.clone());
+    //         }
+    //     }
+    // }
 }
 
 pub fn render_limb(mut query: Query<&mut ChainComponent>, mut gizmos: Gizmos) {
