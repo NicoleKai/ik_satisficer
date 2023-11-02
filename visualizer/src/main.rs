@@ -43,6 +43,7 @@ fn main() {
             bevy_egui::EguiPlugin,
             TransformGizmoPlugin::default(),
         ))
+        .add_event::<SyncTransforms>()
         .insert_resource(Msaa::Sample4)
         .insert_resource(ClearColor(Color::BLACK))
         .init_resource::<UiState>()
@@ -50,6 +51,18 @@ fn main() {
         .add_systems(Update, recompute_limb)
         // .add_systems(Update, render_limb)
         .add_systems(Update, display_ui)
+        .add_systems(
+            Update,
+            sync_ball_transform.run_if(on_event::<SyncTransforms>()),
+        )
+        .add_systems(
+            Update,
+            sync_ctrl_ball_transform.run_if(on_event::<SyncTransforms>()),
+        )
+        .add_systems(
+            Update,
+            sync_segment_transform.run_if(on_event::<SyncTransforms>()),
+        )
         .run();
 }
 
@@ -59,9 +72,17 @@ struct ControlBall {
 }
 
 #[derive(Component, Default, Debug)]
+struct InnerBall {
+    index: usize,
+}
+
+#[derive(Component, Default, Debug)]
 struct Segment {
     index: usize,
 }
+
+#[derive(Event, Default)]
+struct SyncTransforms;
 
 #[derive(Bundle, Default)]
 struct ControlBallBundle {
@@ -70,6 +91,12 @@ struct ControlBallBundle {
     raycast: RaycastPickTarget,
     gizmo_transformable: GizmoTransformable,
     control_ball: ControlBall,
+}
+
+#[derive(Bundle, Default)]
+struct InnerBallBundle {
+    pbr: PbrBundle,
+    inner_ball: InnerBall,
 }
 
 #[derive(Bundle, Default)]
@@ -105,16 +132,36 @@ fn setup(
         ..default()
     });
 
-    let sphere_mesh = meshes.add(Mesh::from(shape::UVSphere {
-        radius: 0.3,
+    let control_ball_mesh = meshes.add(Mesh::from(shape::UVSphere {
+        radius: 0.29,
         ..Default::default()
     }));
+
+    let ball_mesh = meshes.add(Mesh::from(shape::UVSphere {
+        radius: 0.3,
+        ..default()
+    }));
     let material = materials.add(StandardMaterial::default());
+    let translucent_material = materials.add(StandardMaterial {
+        alpha_mode: AlphaMode::Mask(0.5),
+        base_color: Color::rgba(0.7, 0.7, 1.0, 0.2),
+        ..default()
+    });
     for i in 0..chain.joints.len() {
+        commands.spawn(InnerBallBundle {
+            pbr: PbrBundle {
+                mesh: ball_mesh.clone(),
+                material: material.clone(),
+                transform: Transform::from_translation(chain.joints[i]),
+                ..Default::default()
+            },
+            inner_ball: InnerBall { index: i },
+            ..default()
+        });
         commands.spawn(ControlBallBundle {
             pbr: PbrBundle {
-                mesh: sphere_mesh.clone(),
-                material: material.clone(),
+                mesh: control_ball_mesh.clone(),
+                material: translucent_material.clone(),
                 transform: Transform::from_translation(chain.joints[i]),
                 ..Default::default()
             },
@@ -162,16 +209,42 @@ fn setup(
     ));
 }
 
+fn sync_ball_transform(
+    mut query_chain: Query<&mut ChainComponent>,
+    mut query_ball: Query<(&InnerBall, &mut Transform)>,
+) {
+    let chain = query_chain.single_mut();
+    for (ball, mut transform) in query_ball.iter_mut() {
+        *transform = Transform::from_translation(chain.0.joints[ball.index]);
+    }
+}
+
+fn sync_ctrl_ball_transform(
+    mut query_chain: Query<&mut ChainComponent>,
+    mut query_ctrl_ball: Query<(&ControlBall, &mut Transform)>,
+) {
+    let chain = query_chain.single_mut();
+    for (ctrl_ball, mut transform) in query_ctrl_ball.iter_mut() {
+        *transform = Transform::from_translation(chain.0.joints[ctrl_ball.index]);
+    }
+}
+
+fn sync_segment_transform(
+    mut query_chain: Query<&mut ChainComponent>,
+    mut query_segment: Query<(&Segment, &mut Transform)>,
+) {
+    let chain = query_chain.single_mut();
+    for (segment, mut transform) in query_segment.iter_mut() {
+        *transform = chain.0.segment_transforms[segment.index];
+    }
+}
+
 fn recompute_limb(
-    mut query_ball: Query<(&ControlBall, &mut Transform), Without<Segment>>,
-    mut query_segment: Query<(&Segment, &mut Transform), Without<ControlBall>>,
+    query_ctrl_ball: Query<(&ControlBall, &Transform)>,
     mut query_chain: Query<&mut ChainComponent>,
     mut query_velocity_display: Query<&mut VelocityDisplay>,
     mut ev_gizmo: EventReader<GizmoUpdate>,
-    // selected_items_query: Query<
-    //     Entity,
-    //     With<PickSelection, GlobalTransform, Option<&RotationOriginOffset>>,
-    // >,
+    mut ev_sync_transforms: EventWriter<SyncTransforms>,
 ) {
     let mut excluded: Vec<usize> = Vec::new();
     if ev_gizmo.is_empty() {
@@ -181,12 +254,10 @@ fn recompute_limb(
     let mut chain = query_chain.single_mut();
     chain.0.targets.clear();
     for event in ev_gizmo.iter() {
-        // dbg!(&query_ball.iter().map(|(e, _b, _t)| e).collect_vec());
-        let (ball, transform) = query_ball
+        let (ball, transform) = query_ctrl_ball
             .get(event.entity)
             .expect("Something is moving but it's not a ball!");
         excluded.push(ball.index);
-        // chain.0.joints[ball.index].clone_from(&transform.translation);
         chain
             .0
             .targets
@@ -194,15 +265,8 @@ fn recompute_limb(
     }
 
     chain.0.solve(10);
-    for (segment, mut transform) in query_segment.iter_mut() {
-        *transform = chain.0.segment_transforms[segment.index];
-    }
-    for (ball, mut transform) in query_ball.iter_mut() {
-        // if !excluded.contains(&ball.index) {
-        // dbg!(&ball);
-        *transform = Transform::from_translation(chain.0.joints[ball.index]);
-        // }
-    }
+
+    ev_sync_transforms.send_default();
     if !chain.0.angular_velocities.is_empty() {
         query_velocity_display
             .single_mut()
@@ -211,30 +275,12 @@ fn recompute_limb(
     }
 }
 
-// pub fn render_limb(mut query: Query<&mut ChainComponent>, mut gizmos: Gizmos) {
-//     for chain in &mut query {
-//         for joint in &chain.0.joints {
-//             gizmos.sphere(*joint, Quat::default(), 0.2, Color::ORANGE_RED);
-//         }
-//         // for transform in chain.0.segment_transforms.iter() {
-//         //     gizmos.rect(
-//         //         transform.translation,
-//         //         transform.rotation,
-//         //         Vec2::splat(1.0),
-//         //         Color::BLUE,
-//         //     );
-//         // }
-//         // gizmos.linestrip(chain.0.joints.clone(), Color::ORANGE);
-//     }
-// }
-
 fn display_ui(
     mut context: EguiContexts,
     mut query: Query<&mut VelocityDisplay>,
     mut query_chain: Query<&mut ChainComponent>,
-    mut query_ball: Query<(&ControlBall, &mut Transform), Without<Segment>>,
-    mut query_segment: Query<(&Segment, &mut Transform), Without<ControlBall>>,
     mut ui_state: ResMut<UiState>,
+    mut ev_sync_transforms: EventWriter<SyncTransforms>,
 ) {
     let mut chain = query_chain.single_mut();
     egui::Window::new("Limb Control").show(context.ctx_mut(), |ui| {
@@ -245,16 +291,7 @@ fn display_ui(
         if ui.button("Reset all").clicked() {
             velocity_display.0.clear();
             chain.0.reset();
-            for (ball, mut transform) in query_ball.iter_mut() {
-                *transform = Transform::from_translation(chain.0.joints[ball.index]);
-            }
-
-            for (segment, mut transform) in query_segment.iter_mut() {
-                *transform = chain.0.segment_transforms[segment.index];
-            }
-
-            // *query_ball.single_mut().1 =
-            //     Transform::from_translation(query_chain.single().0.get_ee().to_owned());
+            ev_sync_transforms.send_default();
         }
         if ui
             .checkbox(&mut ui_state.lock_ground, "Lock Ground")
