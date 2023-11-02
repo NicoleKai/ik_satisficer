@@ -192,17 +192,17 @@ fn recompute_limb(
             .targets
             .push((ball.index, transform.translation.clone()));
     }
-    for (ball, mut transform) in query_ball.iter_mut() {
-        if !excluded.contains(&ball.index) {
-            dbg!(&ball);
-            *transform = Transform::from_translation(chain.0.joints[ball.index]);
-        }
-    }
 
+    chain.0.solve(10);
     for (segment, mut transform) in query_segment.iter_mut() {
         *transform = chain.0.segment_transforms[segment.index];
     }
-    chain.0.solve(10);
+    for (ball, mut transform) in query_ball.iter_mut() {
+        // if !excluded.contains(&ball.index) {
+        // dbg!(&ball);
+        *transform = Transform::from_translation(chain.0.joints[ball.index]);
+        // }
+    }
     if !chain.0.angular_velocities.is_empty() {
         query_velocity_display
             .single_mut()
