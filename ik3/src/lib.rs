@@ -9,8 +9,9 @@ pub struct FabrikChain {
     pub angles: Vec<f32>,
     pub prev_angles: Vec<f32>,
     pub angular_velocities: Vec<f32>,
-    pub solutions: Vec<(usize, Vec3)>,
+    pub targets: Vec<(usize, Vec3)>,
     pub prev_time: SystemTime,
+    pub lock_ground: bool,
     // FIXME: first reading computation will be way off, start with prev_time option being none, and set it to some
     // so as to skip the first computation frame
     initial_state: Option<Box<Self>>,
@@ -31,7 +32,8 @@ impl FabrikChain {
             angular_velocities: Vec::new(),
             prev_time: std::time::SystemTime::now(),
             initial_state: None,
-            solutions: Vec::new(),
+            targets: Vec::new(),
+            lock_ground: true,
         };
 
         Self {
@@ -77,13 +79,15 @@ impl FabrikChain {
 
     pub fn solve(&mut self, iterations: usize) {
         for _ in 0..iterations {
-            for (index, pos) in self.solutions.iter() {
+            for (index, pos) in self.targets.iter() {
                 self.joints[*index] = *pos;
             }
             self.fwd_reach();
             // self.joints.last_mut().unwrap().clone_from(&target);
+            if self.lock_ground {
+                self.joints.first_mut().unwrap().clone_from(&Vec3::ZERO);
+            }
             self.bwd_reach();
-            // self.joints.first_mut().unwrap().clone_from(&Vec3::ZERO);
         }
         std::mem::swap(&mut self.angles, &mut self.prev_angles);
         self.angles.clear();

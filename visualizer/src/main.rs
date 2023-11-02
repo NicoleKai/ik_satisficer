@@ -18,8 +18,17 @@ use egui_plot::{BoxPlot, Line, Plot, PlotPoint, PlotPoints, PlotUi};
 use ik3::{self, FabrikChain};
 use itertools::Itertools;
 
-// #[derive(Component)]
-// pub struct IKSatisficerComponent(IKSatisficer);
+#[derive(Resource)]
+pub struct UiState {
+    lock_ground: bool,
+}
+
+impl Default for UiState {
+    fn default() -> Self {
+        Self { lock_ground: true }
+    }
+}
+
 #[derive(Component)]
 pub struct ChainComponent(FabrikChain);
 
@@ -36,6 +45,7 @@ fn main() {
         ))
         .insert_resource(Msaa::Sample4)
         .insert_resource(ClearColor(Color::BLACK))
+        .init_resource::<UiState>()
         .add_systems(Startup, setup)
         .add_systems(Update, recompute_limb)
         .add_systems(Update, render_limb)
@@ -136,7 +146,7 @@ fn recompute_limb(
     }
 
     let mut chain = query_chain.single_mut();
-    chain.0.solutions.clear();
+    chain.0.targets.clear();
     for event in ev_gizmo.iter() {
         // dbg!(&query_ball.iter().map(|(e, _b, _t)| e).collect_vec());
         let (ball, transform) = query_ball
@@ -146,14 +156,14 @@ fn recompute_limb(
         // chain.0.joints[ball.index].clone_from(&transform.translation);
         chain
             .0
-            .solutions
+            .targets
             .push((ball.index, transform.translation.clone()));
     }
     for (ball, mut transform) in query_ball.iter_mut() {
-        // if !excluded.contains(&ball.index) {
-        dbg!(&ball);
-        *transform = Transform::from_translation(chain.0.joints[ball.index]);
-        // }
+        if !excluded.contains(&ball.index) {
+            dbg!(&ball);
+            *transform = Transform::from_translation(chain.0.joints[ball.index]);
+        }
     }
     chain.0.solve(10);
     if !chain.0.angular_velocities.is_empty() {
@@ -201,7 +211,9 @@ fn display_ui(
     mut query: Query<&mut VelocityDisplay>,
     mut query_chain: Query<&mut ChainComponent>,
     mut query_ball: Query<(&ControlBall, &mut Transform)>,
+    mut ui_state: ResMut<UiState>,
 ) {
+    let mut chain = query_chain.single_mut();
     egui::Window::new("Limb Control").show(context.ctx_mut(), |ui| {
         let mut velocity_display = query.single_mut();
         if ui.button("Reset graph").clicked() {
@@ -209,10 +221,19 @@ fn display_ui(
         }
         if ui.button("Reset all").clicked() {
             velocity_display.0.clear();
-            query_chain.single_mut().0.reset();
+            chain.0.reset();
+            for (ball, mut transform) in query_ball.iter_mut() {
+                *transform = Transform::from_translation(chain.0.joints[ball.index]);
+            }
 
-            *query_ball.single_mut().1 =
-                Transform::from_translation(query_chain.single().0.get_ee().to_owned());
+            // *query_ball.single_mut().1 =
+            //     Transform::from_translation(query_chain.single().0.get_ee().to_owned());
+        }
+        if ui
+            .checkbox(&mut ui_state.lock_ground, "Lock Ground")
+            .changed()
+        {
+            chain.0.lock_ground = ui_state.lock_ground;
         }
         ui.separator();
         // velocity display is [angle velocity][time]
