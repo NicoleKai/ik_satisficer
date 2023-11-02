@@ -53,9 +53,9 @@ impl FabrikChain {
         };
     }
 
-    pub fn solve(&mut self, target: Vec3, iterations: usize) {
+    pub fn solve(&mut self, iterations: usize) {
         for _ in 0..iterations {
-            self.joints.last_mut().unwrap().clone_from(&target);
+            // self.joints.last_mut().unwrap().clone_from(&target);
             for i in (0..self.joints.len() - 1).rev() {
                 let a = self.joints[i];
                 let b = self.joints[i + 1];

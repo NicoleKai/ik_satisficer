@@ -37,7 +37,9 @@ fn main() {
 }
 
 #[derive(Component)]
-struct ControlBall;
+struct ControlBall {
+    id: usize,
+}
 
 fn setup(
     mut commands: Commands,
@@ -54,7 +56,6 @@ fn setup(
     let ctrl_point_pos = joints.last().cloned().expect("No pos");
     let chain = FabrikChain::new(joints);
     let ee = chain.get_ee().to_owned();
-    commands.spawn(ChainComponent(chain));
     commands.spawn(VelocityDisplay::default());
 
     // Some light to see something
@@ -74,18 +75,21 @@ fn setup(
         ..Default::default()
     }));
     let material = materials.add(StandardMaterial::default());
-    commands.spawn((
-        PbrBundle {
-            mesh,
-            material,
-            transform: Transform::from_translation(ee),
-            ..Default::default()
-        },
-        bevy_mod_picking::PickableBundle::default(),
-        bevy_mod_picking::backends::raycast::RaycastPickTarget::default(),
-        bevy_transform_gizmo::GizmoTransformable,
-        ControlBall,
-    ));
+    for i in 0..chain.joints.len() {
+        commands.spawn((
+            PbrBundle {
+                mesh: mesh.clone(),
+                material: material.clone(),
+                transform: Transform::from_translation(chain.joints[i]),
+                ..Default::default()
+            },
+            bevy_mod_picking::PickableBundle::default(),
+            bevy_mod_picking::backends::raycast::RaycastPickTarget::default(),
+            bevy_transform_gizmo::GizmoTransformable,
+            ControlBall { id: i },
+        ));
+    }
+    commands.spawn(ChainComponent(chain));
     // // ground plane
     // commands.spawn(PbrBundle {
     //     mesh: meshes.add(shape::Plane::from_size(50.).into()),
@@ -109,17 +113,16 @@ fn recompute_limb(
     mut query_chain: Query<&mut ChainComponent>,
     mut query_velocity_display: Query<&mut VelocityDisplay>,
 ) {
-    let Ok((_ball, new_target)) = query_ball.get_single() else {
-        return;
-    };
-
-    for mut chain in query_chain.iter_mut() {
-        chain.0.solve(new_target.translation, 10);
-        if !chain.0.angular_velocities.is_empty() {
-            query_velocity_display
-                .single_mut()
-                .0
-                .push(chain.0.angular_velocities.clone());
+    for (ball, new_target) in query_ball.iter() {
+        for mut chain in query_chain.iter_mut() {
+            chain.0.joints[ball.id].clone_from(&new_target.translation);
+            chain.0.solve(10);
+            if !chain.0.angular_velocities.is_empty() {
+                query_velocity_display
+                    .single_mut()
+                    .0
+                    .push(chain.0.angular_velocities.clone());
+            }
         }
     }
 }
