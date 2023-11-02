@@ -58,6 +58,11 @@ struct ControlBall {
     index: usize,
 }
 
+#[derive(Component, Default, Debug)]
+struct Segment {
+    index: usize,
+}
+
 #[derive(Bundle, Default)]
 struct ControlBallBundle {
     pbr: PbrBundle,
@@ -65,6 +70,12 @@ struct ControlBallBundle {
     raycast: RaycastPickTarget,
     gizmo_transformable: GizmoTransformable,
     control_ball: ControlBall,
+}
+
+#[derive(Bundle, Default)]
+struct SegmentBundle {
+    pbr: PbrBundle,
+    segment: Segment,
 }
 
 fn setup(
@@ -94,7 +105,7 @@ fn setup(
         ..default()
     });
 
-    let mesh = meshes.add(Mesh::from(shape::UVSphere {
+    let sphere_mesh = meshes.add(Mesh::from(shape::UVSphere {
         radius: 0.2,
         ..Default::default()
     }));
@@ -102,7 +113,7 @@ fn setup(
     for i in 0..chain.joints.len() {
         commands.spawn(ControlBallBundle {
             pbr: PbrBundle {
-                mesh: mesh.clone(),
+                mesh: sphere_mesh.clone(),
                 material: material.clone(),
                 transform: Transform::from_translation(chain.joints[i]),
                 ..Default::default()
@@ -111,6 +122,27 @@ fn setup(
             ..default()
         });
     }
+
+    for i in 0..chain.lengths.len() {
+        let cylinder_mesh = meshes.add(Mesh::from(shape::Cylinder {
+            radius: 0.15,
+            height: chain.lengths[i],
+            ..default()
+        }));
+        commands.spawn(SegmentBundle {
+            pbr: PbrBundle {
+                mesh: cylinder_mesh,
+                material: material.clone(),
+                transform: chain.segment_transforms[i],
+                ..Default::default()
+            },
+            segment: Segment { index: i },
+            ..default()
+        });
+    }
+    // for i in 0..chain.lengths.len() {
+    //     commands.spawn()
+    // }
     commands.spawn(ChainComponent(chain));
     // // ground plane
     // commands.spawn(PbrBundle {
@@ -131,7 +163,8 @@ fn setup(
 }
 
 fn recompute_limb(
-    mut query_ball: Query<(&ControlBall, &mut Transform)>,
+    mut query_ball: Query<(&ControlBall, &mut Transform), Without<Segment>>,
+    mut query_segment: Query<(&Segment, &mut Transform), Without<ControlBall>>,
     mut query_chain: Query<&mut ChainComponent>,
     mut query_velocity_display: Query<&mut VelocityDisplay>,
     mut ev_gizmo: EventReader<GizmoUpdate>,
@@ -165,6 +198,10 @@ fn recompute_limb(
             *transform = Transform::from_translation(chain.0.joints[ball.index]);
         }
     }
+
+    for (segment, mut transform) in query_segment.iter_mut() {
+        *transform = chain.0.segment_transforms[segment.index];
+    }
     chain.0.solve(10);
     if !chain.0.angular_velocities.is_empty() {
         query_velocity_display
@@ -179,29 +216,14 @@ pub fn render_limb(mut query: Query<&mut ChainComponent>, mut gizmos: Gizmos) {
         for joint in &chain.0.joints {
             gizmos.sphere(*joint, Quat::default(), 0.2, Color::ORANGE_RED);
         }
-
-        for i in 1..chain.0.joints.len() {
-            let a = chain.0.joints[i];
-            let b = chain.0.joints[i - 1];
-
-            let ab_vector = b - a;
-            let ab_vector = ab_vector.normalize();
-
-            let world_axis = Vec3::new(0.0, 1.0, 0.0); // Y-axis as an example
-
-            // Cross to get a perpendicular vector
-            let perp_vector = ab_vector.cross(world_axis).normalize();
-
-            // Cross again to get a second perpendicular vector properly aligned
-            let perp_vector2 = ab_vector.cross(perp_vector).normalize();
-
-            // Create a quaternion from the perpendicular vector
-            let quaternion =
-                Quat::from_mat3(&Mat3::from_cols(ab_vector, perp_vector, perp_vector2))
-                    * Quat::from_rotation_y(90f32.to_radians());
-
-            gizmos.rect((a + b) / 2.0, quaternion, Vec2::splat(1.0), Color::BLUE);
-        }
+        // for transform in chain.0.segment_transforms.iter() {
+        //     gizmos.rect(
+        //         transform.translation,
+        //         transform.rotation,
+        //         Vec2::splat(1.0),
+        //         Color::BLUE,
+        //     );
+        // }
         gizmos.linestrip(chain.0.joints.clone(), Color::ORANGE);
     }
 }

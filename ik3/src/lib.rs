@@ -1,11 +1,13 @@
 use std::time::{Duration, SystemTime};
 
-use bevy_math::Vec3;
+use bevy_math::{Mat3, Quat, Vec3};
+use bevy_transform::prelude::Transform;
 
 #[derive(Debug, Clone)]
 pub struct FabrikChain {
     pub joints: Vec<Vec3>,
     pub lengths: Vec<f32>,
+    pub segment_transforms: Vec<Transform>,
     pub angles: Vec<f32>,
     pub prev_angles: Vec<f32>,
     pub angular_velocities: Vec<f32>,
@@ -32,18 +34,62 @@ impl FabrikChain {
             angular_velocities: Vec::new(),
             prev_time: std::time::SystemTime::now(),
             initial_state: None,
+            segment_transforms: Vec::new(),
             targets: Vec::new(),
             lock_ground: true,
         };
 
-        Self {
+        let mut final_self = Self {
             initial_state: Some(Box::new(new_self.clone())),
             ..new_self
-        }
+        };
+        final_self.recalculate();
+        final_self
     }
 
     pub fn get_ee(&self) -> &Vec3 {
         self.joints.last().expect("Joints should not be empty")
+    }
+
+    pub fn recalculate(&mut self) {
+        let frame_delta_time = self
+            .prev_time
+            .elapsed()
+            .expect("Could not get elapsed time");
+        self.prev_time = std::time::SystemTime::now();
+
+        self.angular_velocities.clear();
+        for i in 0..self.prev_angles.len() {
+            self.angular_velocities.push(
+                (self.angles[i] - self.prev_angles[i]) / (frame_delta_time.as_micros() as f32),
+            );
+        }
+        self.segment_transforms.clear();
+        for i in 1..self.joints.len() {
+            let a = self.joints[i];
+            let b = self.joints[i - 1];
+
+            let ab_vector = b - a;
+            let ab_vector = ab_vector.normalize();
+
+            let world_axis = Vec3::new(0.0, 1.0, 0.0); // Y-axis as an example
+
+            // Cross to get a perpendicular vector
+            let perp_vector = ab_vector.cross(world_axis).normalize();
+
+            // Cross again to get a second perpendicular vector properly aligned
+            let perp_vector2 = ab_vector.cross(perp_vector).normalize();
+
+            // Create a quaternion from the perpendicular vector
+            let quat = Quat::from_mat3(&Mat3::from_cols(ab_vector, perp_vector, perp_vector2))
+                * Quat::from_rotation_z(90f32.to_radians());
+
+            self.segment_transforms.push(Transform {
+                translation: (a + b) / 2.0,
+                rotation: quat,
+                scale: Vec3::ONE,
+            });
+        }
     }
 
     pub fn reset(&mut self) {
@@ -98,18 +144,7 @@ impl FabrikChain {
             let angle = (a - b).angle_between(c - b);
             self.angles.push(angle);
         }
-        let frame_delta_time = self
-            .prev_time
-            .elapsed()
-            .expect("Could not get elapsed time");
-        self.prev_time = std::time::SystemTime::now();
-
-        self.angular_velocities.clear();
-        for i in 0..self.prev_angles.len() {
-            self.angular_velocities.push(
-                (self.angles[i] - self.prev_angles[i]) / (frame_delta_time.as_micros() as f32),
-            );
-        }
+        self.recalculate();
     }
 }
 
