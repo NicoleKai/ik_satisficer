@@ -1,9 +1,12 @@
 use bevy_egui::EguiContexts;
 use bevy_mod_picking::{
-    prelude::{Drag, Move, Pointer},
-    DefaultPickingPlugins,
+    prelude::{Click, Drag, Move, Pointer, RaycastPickTarget},
+    selection::PickSelection,
+    DefaultPickingPlugins, PickableBundle,
 };
-use bevy_transform_gizmo::{GizmoTransformable, TransformGizmoPlugin};
+use bevy_transform_gizmo::{
+    GizmoTransformable, RotationOriginOffset, TransformGizmoEvent, TransformGizmoPlugin,
+};
 // use ik2::Limb;
 
 use bevy::{ecs::schedule::ScheduleGraph, prelude::*};
@@ -39,9 +42,18 @@ fn main() {
         .run();
 }
 
-#[derive(Component)]
+#[derive(Component, Default)]
 struct ControlBall {
-    id: usize,
+    index: usize,
+}
+
+#[derive(Bundle, Default)]
+struct ControlBallBundle {
+    pbr: PbrBundle,
+    pickable: PickableBundle,
+    raycast: RaycastPickTarget,
+    gizmo_transformable: GizmoTransformable,
+    control_ball: ControlBall,
 }
 
 fn setup(
@@ -77,18 +89,16 @@ fn setup(
     }));
     let material = materials.add(StandardMaterial::default());
     for i in 0..chain.joints.len() {
-        commands.spawn((
-            PbrBundle {
+        commands.spawn(ControlBallBundle {
+            pbr: PbrBundle {
                 mesh: mesh.clone(),
                 material: material.clone(),
                 transform: Transform::from_translation(chain.joints[i]),
                 ..Default::default()
             },
-            bevy_mod_picking::PickableBundle::default(),
-            bevy_mod_picking::backends::raycast::RaycastPickTarget::default(),
-            bevy_transform_gizmo::GizmoTransformable,
-            ControlBall { id: i },
-        ));
+            control_ball: ControlBall { index: i },
+            ..default()
+        });
     }
     commands.spawn(ChainComponent(chain));
     // // ground plane
@@ -110,55 +120,26 @@ fn setup(
 }
 
 fn recompute_limb(
-    query_ball: Query<&ControlBall>,
+    mut query_ball: Query<(Entity, &ControlBall, &mut Transform)>,
     mut query_chain: Query<&mut ChainComponent>,
     mut query_velocity_display: Query<&mut VelocityDisplay>,
-    mut event: EventReader<Pointer<Move>>,
+    selected_items_query: Query<Entity, With<PickSelection>>,
 ) {
-    for event in event.iter() {
-        match query_ball.get(event.target) {
-            // Ok((ball, new_target)) => {
-            //     for mut chain in query_chain.iter_mut() {
-            //         chain.0.joints[ball.id].clone_from(&new_target.translation);
-            //         chain.0.solve(10);
-            //         if !chain.0.angular_velocities.is_empty() {
-            //             query_velocity_display
-            //                 .single_mut()
-            //                 .0
-            //                 .push(chain.0.angular_velocities.clone());
-            //         }
-            //     }
-            // }
-            Ok(_) => {}
-            Err(e) => {
-                eprintln!("WARNING: could not retrieve target for {}: {}", &event, e);
+    let mut chain = query_chain.single_mut();
+    for (entity, ball, mut transform) in query_ball.iter_mut() {
+        if selected_items_query.iter().contains(&entity) {
+            chain.0.joints[ball.index].clone_from(&transform.translation);
+            chain.0.solve(10);
+            if !chain.0.angular_velocities.is_empty() {
+                query_velocity_display
+                    .single_mut()
+                    .0
+                    .push(chain.0.angular_velocities.clone());
             }
+        } else {
+            *transform = Transform::from_translation(chain.0.joints[ball.index]);
         }
-        // if let Some(control_ball) = world.get::<Transform>(event.target) {
-        //     for mut chain in query_chain.iter_mut() {
-        //         chain.0.joints[ball.id].clone_from(&new_target.translation);
-        //         chain.0.solve(10);
-        //         if !chain.0.angular_velocities.is_empty() {
-        //             query_velocity_display
-        //                 .single_mut()
-        //                 .0
-        //                 .push(chain.0.angular_velocities.clone());
-        //         }
-        //     }
-        // }
     }
-    // for (ball, new_target) in query_ball.iter() {
-    //     for mut chain in query_chain.iter_mut() {
-    //         chain.0.joints[ball.id].clone_from(&new_target.translation);
-    //         chain.0.solve(10);
-    //         if !chain.0.angular_velocities.is_empty() {
-    //             query_velocity_display
-    //                 .single_mut()
-    //                 .0
-    //                 .push(chain.0.angular_velocities.clone());
-    //         }
-    //     }
-    // }
 }
 
 pub fn render_limb(mut query: Query<&mut ChainComponent>, mut gizmos: Gizmos) {
