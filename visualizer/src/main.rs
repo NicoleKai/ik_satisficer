@@ -48,7 +48,7 @@ fn main() {
         .init_resource::<UiState>()
         .add_systems(Startup, setup)
         .add_systems(Update, recompute_limb)
-        .add_systems(Update, render_limb)
+        // .add_systems(Update, render_limb)
         .add_systems(Update, display_ui)
         .run();
 }
@@ -106,7 +106,7 @@ fn setup(
     });
 
     let sphere_mesh = meshes.add(Mesh::from(shape::UVSphere {
-        radius: 0.2,
+        radius: 0.3,
         ..Default::default()
     }));
     let material = materials.add(StandardMaterial::default());
@@ -211,28 +211,29 @@ fn recompute_limb(
     }
 }
 
-pub fn render_limb(mut query: Query<&mut ChainComponent>, mut gizmos: Gizmos) {
-    for chain in &mut query {
-        for joint in &chain.0.joints {
-            gizmos.sphere(*joint, Quat::default(), 0.2, Color::ORANGE_RED);
-        }
-        // for transform in chain.0.segment_transforms.iter() {
-        //     gizmos.rect(
-        //         transform.translation,
-        //         transform.rotation,
-        //         Vec2::splat(1.0),
-        //         Color::BLUE,
-        //     );
-        // }
-        gizmos.linestrip(chain.0.joints.clone(), Color::ORANGE);
-    }
-}
+// pub fn render_limb(mut query: Query<&mut ChainComponent>, mut gizmos: Gizmos) {
+//     for chain in &mut query {
+//         for joint in &chain.0.joints {
+//             gizmos.sphere(*joint, Quat::default(), 0.2, Color::ORANGE_RED);
+//         }
+//         // for transform in chain.0.segment_transforms.iter() {
+//         //     gizmos.rect(
+//         //         transform.translation,
+//         //         transform.rotation,
+//         //         Vec2::splat(1.0),
+//         //         Color::BLUE,
+//         //     );
+//         // }
+//         // gizmos.linestrip(chain.0.joints.clone(), Color::ORANGE);
+//     }
+// }
 
 fn display_ui(
     mut context: EguiContexts,
     mut query: Query<&mut VelocityDisplay>,
     mut query_chain: Query<&mut ChainComponent>,
-    mut query_ball: Query<(&ControlBall, &mut Transform)>,
+    mut query_ball: Query<(&ControlBall, &mut Transform), Without<Segment>>,
+    mut query_segment: Query<(&Segment, &mut Transform), Without<ControlBall>>,
     mut ui_state: ResMut<UiState>,
 ) {
     let mut chain = query_chain.single_mut();
@@ -246,6 +247,10 @@ fn display_ui(
             chain.0.reset();
             for (ball, mut transform) in query_ball.iter_mut() {
                 *transform = Transform::from_translation(chain.0.joints[ball.index]);
+            }
+
+            for (segment, mut transform) in query_segment.iter_mut() {
+                *transform = chain.0.segment_transforms[segment.index];
             }
 
             // *query_ball.single_mut().1 =

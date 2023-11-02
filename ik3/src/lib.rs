@@ -1,4 +1,7 @@
-use std::time::{Duration, SystemTime};
+use std::{
+    assert_eq,
+    time::{Duration, SystemTime},
+};
 
 use bevy_math::{Mat3, Quat, Vec3};
 use bevy_transform::prelude::Transform;
@@ -90,6 +93,7 @@ impl FabrikChain {
                 scale: Vec3::ONE,
             });
         }
+        assert_eq!(self.segment_transforms.len(), self.lengths.len());
     }
 
     pub fn reset(&mut self) {
@@ -101,6 +105,7 @@ impl FabrikChain {
             initial_state: Some(initial_state.clone()),
             ..*initial_state
         };
+        self.recalculate();
     }
 
     pub fn fwd_reach(&mut self) {
