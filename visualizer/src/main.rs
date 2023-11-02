@@ -42,7 +42,7 @@ fn main() {
         .run();
 }
 
-#[derive(Component, Default)]
+#[derive(Component, Default, Debug)]
 struct ControlBall {
     index: usize,
 }
@@ -123,11 +123,28 @@ fn recompute_limb(
     mut query_ball: Query<(Entity, &ControlBall, &mut Transform)>,
     mut query_chain: Query<&mut ChainComponent>,
     mut query_velocity_display: Query<&mut VelocityDisplay>,
-    selected_items_query: Query<Entity, With<PickSelection>>,
+    // selected_items_query: Query<
+    //     Entity,
+    //     With<PickSelection, GlobalTransform, Option<&RotationOriginOffset>>,
+    // >,
+    selected_items_query: Query<(
+        &PickSelection,
+        &GlobalTransform,
+        Entity,
+        Option<&RotationOriginOffset>,
+    )>,
 ) {
+    if selected_items_query.is_empty() {
+        return;
+    }
     let mut chain = query_chain.single_mut();
     for (entity, ball, mut transform) in query_ball.iter_mut() {
-        if selected_items_query.iter().contains(&entity) {
+        // dbg!(&entity, &ball, &transform);
+        if selected_items_query
+            .iter()
+            .map(|(_, _, entity, _)| entity)
+            .contains(&entity)
+        {
             chain.0.joints[ball.index].clone_from(&transform.translation);
             chain.0.solve(10);
             if !chain.0.angular_velocities.is_empty() {
@@ -137,6 +154,7 @@ fn recompute_limb(
                     .push(chain.0.angular_velocities.clone());
             }
         } else {
+            dbg!(ball);
             *transform = Transform::from_translation(chain.0.joints[ball.index]);
         }
     }
