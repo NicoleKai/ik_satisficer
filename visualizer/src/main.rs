@@ -130,21 +130,30 @@ fn recompute_limb(
     //     With<PickSelection, GlobalTransform, Option<&RotationOriginOffset>>,
     // >,
 ) {
+    let mut excluded: Vec<usize> = Vec::new();
     if ev_gizmo.is_empty() {
         return;
     }
 
     let mut chain = query_chain.single_mut();
-
+    chain.0.solutions.clear();
     for event in ev_gizmo.iter() {
         // dbg!(&query_ball.iter().map(|(e, _b, _t)| e).collect_vec());
         let (ball, transform) = query_ball
             .get(event.entity)
             .expect("Something is moving but it's not a ball!");
-        chain.0.joints[ball.index].clone_from(&transform.translation);
+        excluded.push(ball.index);
+        // chain.0.joints[ball.index].clone_from(&transform.translation);
+        chain
+            .0
+            .solutions
+            .push((ball.index, transform.translation.clone()));
     }
     for (ball, mut transform) in query_ball.iter_mut() {
+        // if !excluded.contains(&ball.index) {
+        dbg!(&ball);
         *transform = Transform::from_translation(chain.0.joints[ball.index]);
+        // }
     }
     chain.0.solve(10);
     if !chain.0.angular_velocities.is_empty() {
