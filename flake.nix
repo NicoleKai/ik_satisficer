@@ -63,10 +63,10 @@
                        -c commiter.email=$email "$@"
             '')            
             (pkgs.writeShellScriptBin "run" ''
-              cargo run --features bevy/dynamic_linking "$@"
+              cargo --locked run --features bevy/dynamic_linking "$@"
             '')
             (pkgs.writeShellScriptBin "build" ''
-              cargo build --features bevy/dynamic_linking "$@"
+              cargo --locked build --features bevy/dynamic_linking "$@"
             '')
            ];
         });
