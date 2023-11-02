@@ -49,7 +49,6 @@ fn main() {
         .init_resource::<UiState>()
         .add_systems(Startup, setup)
         .add_systems(Update, recompute_limb)
-        // .add_systems(Update, render_limb)
         .add_systems(Update, display_ui)
         .add_systems(
             Update,
@@ -109,6 +108,7 @@ fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    mut ev_sync_transforms: EventWriter<SyncTransforms>,
 ) {
     let joints = vec![
         Vec3::new(0.0, 0.0, 0.0),
@@ -187,17 +187,9 @@ fn setup(
             ..default()
         });
     }
-    // for i in 0..chain.lengths.len() {
-    //     commands.spawn()
-    // }
     commands.spawn(ChainComponent(chain));
-    // // ground plane
-    // commands.spawn(PbrBundle {
-    //     mesh: meshes.add(shape::Plane::from_size(50.).into()),
-    //     material: materials.add(Color::SILVER.into()),
-    //     ..default()
-    // });
 
+    ev_sync_transforms.send_default();
     // The camera
     commands.spawn((
         Camera3dBundle {

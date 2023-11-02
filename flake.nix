@@ -51,6 +51,7 @@
             cargo
             rust-analyzer
             bacon
+            xclip
             (pkgs.writeShellScriptBin "git" ''
               email=nicolekohm102@gmail.com
               name=NicoleKai
