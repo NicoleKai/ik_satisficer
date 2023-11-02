@@ -121,7 +121,7 @@ fn setup(
 }
 
 fn recompute_limb(
-    mut query_ball: Query<(Entity, &ControlBall, &mut Transform)>,
+    mut query_ball: Query<(&ControlBall, &mut Transform)>,
     mut query_chain: Query<&mut ChainComponent>,
     mut query_velocity_display: Query<&mut VelocityDisplay>,
     mut ev_gizmo: EventReader<GizmoUpdate>,
@@ -129,36 +129,29 @@ fn recompute_limb(
     //     Entity,
     //     With<PickSelection, GlobalTransform, Option<&RotationOriginOffset>>,
     // >,
-    selected_items_query: Query<(
-        &PickSelection,
-        &GlobalTransform,
-        Entity,
-        Option<&RotationOriginOffset>,
-    )>,
 ) {
-    if selected_items_query.is_empty() {
+    if ev_gizmo.is_empty() {
         return;
     }
+
     let mut chain = query_chain.single_mut();
-    for (entity, ball, mut transform) in query_ball.iter_mut() {
-        // dbg!(&entity, &ball, &transform);
-        if selected_items_query
-            .iter()
-            .map(|(_, _, entity, _)| entity)
-            .contains(&entity)
-        {
-            chain.0.joints[ball.index].clone_from(&transform.translation);
-            chain.0.solve(10);
-            if !chain.0.angular_velocities.is_empty() {
-                query_velocity_display
-                    .single_mut()
-                    .0
-                    .push(chain.0.angular_velocities.clone());
-            }
-        } else {
-            dbg!(ball);
-            *transform = Transform::from_translation(chain.0.joints[ball.index]);
-        }
+
+    for event in ev_gizmo.iter() {
+        // dbg!(&query_ball.iter().map(|(e, _b, _t)| e).collect_vec());
+        let (ball, transform) = query_ball
+            .get(event.entity)
+            .expect("Something is moving but it's not a ball!");
+        chain.0.joints[ball.index].clone_from(&transform.translation);
+    }
+    for (ball, mut transform) in query_ball.iter_mut() {
+        *transform = Transform::from_translation(chain.0.joints[ball.index]);
+    }
+    chain.0.solve(10);
+    if !chain.0.angular_velocities.is_empty() {
+        query_velocity_display
+            .single_mut()
+            .0
+            .push(chain.0.angular_velocities.clone());
     }
 }
 
