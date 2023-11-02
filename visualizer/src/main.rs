@@ -5,7 +5,8 @@ use bevy_mod_picking::{
     DefaultPickingPlugins, PickableBundle,
 };
 use bevy_transform_gizmo::{
-    GizmoTransformable, RotationOriginOffset, TransformGizmoEvent, TransformGizmoPlugin,
+    GizmoTransformable, GizmoUpdate, RotationOriginOffset, TransformGizmoEvent,
+    TransformGizmoPlugin,
 };
 // use ik2::Limb;
 
@@ -123,6 +124,7 @@ fn recompute_limb(
     mut query_ball: Query<(Entity, &ControlBall, &mut Transform)>,
     mut query_chain: Query<&mut ChainComponent>,
     mut query_velocity_display: Query<&mut VelocityDisplay>,
+    mut ev_gizmo: EventReader<GizmoUpdate>,
     // selected_items_query: Query<
     //     Entity,
     //     With<PickSelection, GlobalTransform, Option<&RotationOriginOffset>>,
