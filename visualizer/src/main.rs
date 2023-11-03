@@ -260,21 +260,17 @@ fn recompute_limb(
         _ => None,
     });
 
-    println!("PROCESSING...");
-
     chain.0.targets.clear();
     for entity in target_entities {
         let (_entity, ball, transform) = query_ctrl_ball
             .get(entity)
             .expect("Something is moving but it's not a ball!");
         // excluded.push(entity);
-        dbg!(ball.index, transform.translation.clone());
         chain
             .0
             .targets
             .push((ball.index, transform.translation.clone()));
     }
-    dbg!(&chain.0.targets);
     chain.0.solve(10);
 
     ev_sync_transforms.send_default();

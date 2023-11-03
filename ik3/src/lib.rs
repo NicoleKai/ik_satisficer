@@ -129,7 +129,6 @@ impl FabrikChain {
     }
 
     pub fn solve(&mut self, iterations: usize) {
-        dbg!(iterations);
         for _ in 0..iterations {
             for (index, pos) in self.targets.iter() {
                 self.joints[*index] = *pos;
@@ -166,7 +165,6 @@ mod tests {
             Vec3::new(2.0, 0.0, 0.0),
         ];
         let chain = FabrikChain::new(joints);
-        dbg!(&chain);
 
         assert_eq!(chain.lengths, vec![1.0, 1.0]);
     }
@@ -179,7 +177,6 @@ mod tests {
             Vec3::new(2.0, 0.0, 0.0),
         ];
         let mut chain = FabrikChain::new(joints);
-        dbg!(&chain);
         let target = Vec3::new(3.0, 0.0, 0.0);
 
         chain.solve(target, 10);
