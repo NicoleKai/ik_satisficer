@@ -303,7 +303,7 @@ fn display_ui(
         if ui.button("Reset all").clicked() {
             velocity_display.0.clear();
             chain.0.reset();
-            ui_state.lock_ground = chain.0.lock_ground;
+            chain.0.lock_ground = ui_state.lock_ground;
             ev_sync_transforms.send_default();
         }
         if ui
