@@ -62,6 +62,9 @@
                        -c commiter.name=$name \
                        -c commiter.email=$email "$@"
             '')            
+            (pkgs.writeShellScriptBin "bake" ''
+              bacon run -- --locked --features bevy/dynamic_linking "$@"
+            '')
             (pkgs.writeShellScriptBin "run" ''
               cargo --locked run --features bevy/dynamic_linking "$@"
             '')

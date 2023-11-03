@@ -129,6 +129,7 @@ impl FabrikChain {
     }
 
     pub fn solve(&mut self, iterations: usize) {
+        dbg!(iterations);
         for _ in 0..iterations {
             for (index, pos) in self.targets.iter() {
                 self.joints[*index] = *pos;

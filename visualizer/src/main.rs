@@ -107,7 +107,7 @@ fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    mut ev_sync_transforms: EventWriter<SyncTransforms>,
+    // mut ev_sync_transforms: EventWriter<SyncTransforms>,
 ) {
     let joints = vec![
         Vec3::new(0.0, 0.0, 0.0),
@@ -188,7 +188,7 @@ fn setup(
     }
     commands.spawn(ChainComponent(chain));
 
-    ev_sync_transforms.send_default();
+    // ev_sync_transforms.send_default();
     // The camera
     commands.spawn((
         Camera3dBundle {
@@ -212,11 +212,16 @@ fn sync_ball_transform(
 
 fn sync_ctrl_ball_transform(
     mut query_chain: Query<&mut ChainComponent>,
-    mut query_ctrl_ball: Query<(&ControlBall, &mut Transform)>,
+    mut query_ctrl_ball: Query<(Entity, &ControlBall, &mut Transform)>,
+    mut ev_sync_transforms: EventReader<SyncTransforms>,
 ) {
-    let chain = query_chain.single_mut();
-    for (ctrl_ball, mut transform) in query_ctrl_ball.iter_mut() {
-        *transform = Transform::from_translation(chain.0.joints[ctrl_ball.index]);
+    for event in ev_sync_transforms.iter() {
+        let chain = query_chain.single_mut();
+        for (entity, ctrl_ball, mut transform) in query_ctrl_ball.iter_mut() {
+            if !event.exclude.contains(&entity) {
+                *transform = Transform::from_translation(chain.0.joints[ctrl_ball.index]);
+            }
+        }
     }
 }
 
@@ -237,37 +242,40 @@ fn recompute_limb(
     mut ev_gizmo: EventReader<GizmoUpdate>,
     mut ev_sync_transforms: EventWriter<SyncTransforms>,
 ) {
+    let mut chain = query_chain.single_mut();
+    let mut target_entities: Vec<Entity> = Vec::new();
     for event in ev_gizmo.iter() {
         match event.clone() {
             GizmoUpdate::Drag {
                 entity,
                 interaction,
             } => {
-                let mut excluded: Vec<Entity> = Vec::new();
-
-                let mut chain = query_chain.single_mut();
-                chain.0.targets.clear();
-                let (entity, ball, transform) = query_ctrl_ball
-                    .get(entity)
-                    .expect("Something is moving but it's not a ball!");
-                excluded.push(entity);
-                chain
-                    .0
-                    .targets
-                    .push((ball.index, transform.translation.clone()));
-
-                chain.0.solve(10);
-
-                ev_sync_transforms.send_default();
-                if !chain.0.angular_velocities.is_empty() {
-                    query_velocity_display
-                        .single_mut()
-                        .0
-                        .push(chain.0.angular_velocities.clone());
-                }
+                target_entities.push(entity);
             }
             _ => {}
         }
+    }
+
+    chain.0.targets.clear();
+    for entity in target_entities {
+        let (_entity, ball, transform) = query_ctrl_ball
+            .get(entity)
+            .expect("Something is moving but it's not a ball!");
+        // excluded.push(entity);
+        dbg!(ball.index, transform.translation.clone());
+        chain
+            .0
+            .targets
+            .push((ball.index, transform.translation.clone()));
+    }
+    chain.0.solve(10);
+
+    ev_sync_transforms.send_default();
+    if !chain.0.angular_velocities.is_empty() {
+        query_velocity_display
+            .single_mut()
+            .0
+            .push(chain.0.angular_velocities.clone());
     }
 }
 
