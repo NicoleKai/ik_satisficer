@@ -109,26 +109,8 @@ impl FabrikChain {
         self.recalculate();
     }
 
-    fn iter_between(from: usize, to: usize) -> Vec<usize> {
-        if to >= from {
-            (from..to).collect()
-        } else {
-            (to..from).rev().collect()
-        }
-    }
-
-    pub fn reach(&mut self, from: usize, to: usize) {
-        // 'FORWARD REACHING'
-        for i in Self::iter_between(from, to).into_iter() {
-            //(0..self.joints.len() - 1).rev() {
-            let a = self.joints[i];
-            let b = self.joints[i + 1];
-            let direction = (a - b).normalize();
-            self.joints[i] = b + direction * self.lengths[i];
-        }
-    }
-    pub fn fwd_reach(&mut self, from: usize, to: usize) {
-        for i in Self::iter_between(from, to).into_iter() {
+    pub fn fwd_reach(&mut self, minimum: usize) {
+        for i in (0..minimum).rev() {
             let a = self.joints[i];
             let b = self.joints[i + 1];
             let direction = (a - b).normalize();
@@ -136,8 +118,8 @@ impl FabrikChain {
         }
     }
 
-    pub fn bwd_reach(&mut self, from: usize, to: usize) {
-        for i in Self::iter_between(from, to).into_iter() {
+    pub fn bwd_reach(&mut self, maximum: usize) {
+        for i in 0..maximum {
             let a = self.joints[i];
             let b = self.joints[i + 1];
             let direction = (b - a).normalize();
@@ -147,15 +129,15 @@ impl FabrikChain {
 
     pub fn solve(&mut self, iterations: usize) {
         for _ in 0..iterations {
-            for (index, pos) in self.targets.iter() {
-                self.joints[*index] = *pos;
+            for i in 0..self.targets.len() {
+                let (index, pos) = self.targets[i];
+                self.joints[index] = pos;
+                self.fwd_reach(index);
+                if self.lock_ground {
+                    self.joints.first_mut().unwrap().clone_from(&Vec3::ZERO);
+                }
+                self.bwd_reach(self.joints.len() - 1);
             }
-            self.fwd_reach(self.joints.len() - 1, 0);
-            // self.joints.last_mut().unwrap().clone_from(&target);
-            if self.lock_ground {
-                self.joints.first_mut().unwrap().clone_from(&Vec3::ZERO);
-            }
-            self.bwd_reach(0, self.joints.len() - 1);
         }
         std::mem::swap(&mut self.angles, &mut self.prev_angles);
         self.angles.clear();
