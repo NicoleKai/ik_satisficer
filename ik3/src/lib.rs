@@ -178,8 +178,8 @@ mod tests {
         ];
         let mut chain = FabrikChain::new(joints);
         let target = Vec3::new(3.0, 0.0, 0.0);
-
-        chain.solve(target, 10);
+        chain.targets.push((chain.joints.len() - 1, target));
+        chain.solve(10);
 
         assert!((*chain.joints.last().unwrap() - target).length() < 0.01);
     }

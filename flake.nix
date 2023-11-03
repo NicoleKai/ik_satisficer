@@ -47,11 +47,6 @@
             exec $SHELL
           '';
           nativeBuildInputs = with pkgs; [
-            rustc
-            cargo
-            rust-analyzer
-            bacon
-            xclip
             (pkgs.writeShellScriptBin "git" ''
               email=nicolekohm102@gmail.com
               name=NicoleKai
@@ -62,15 +57,26 @@
                        -c commiter.name=$name \
                        -c commiter.email=$email "$@"
             '')            
-            (pkgs.writeShellScriptBin "bake" ''
-              bacon run -- --locked --features bevy/dynamic_linking "$@"
-            '')
+            # (pkgs.writeShellScriptBin "bacon" ''
+            #   ${pkgs.bacon}/bin/bacon "$@"  -- --locked --features bevy/dynamic_linking
+            # '')
+            # (pkgs.writeShellScriptBin "bake" ''
+            #   bacon run -- --locked --features bevy/dynamic_linking "$@"
+            # '')
             (pkgs.writeShellScriptBin "run" ''
               cargo --locked run --features bevy/dynamic_linking "$@"
+            '')
+            (pkgs.writeShellScriptBin "test" ''
+              cargo --locked test --features bevy/dynamic_linking "$@"
             '')
             (pkgs.writeShellScriptBin "build" ''
               cargo --locked build --features bevy/dynamic_linking "$@"
             '')
+            rustc
+            cargo
+            rust-analyzer
+            bacon
+            xclip
            ];
         });
       }
