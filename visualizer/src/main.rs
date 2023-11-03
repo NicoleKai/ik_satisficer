@@ -14,6 +14,7 @@ use bevy::{ecs::schedule::ScheduleGraph, prelude::*};
 use egui_plot::{BoxPlot, Line, Plot, PlotPoint, PlotPoints, PlotUi};
 use ik3::{self, FabrikChain};
 use itertools::Itertools;
+use tracing_subscriber::EnvFilter;
 
 #[derive(Resource)]
 pub struct UiState {
@@ -33,6 +34,9 @@ pub struct ChainComponent(FabrikChain);
 pub struct VelocityDisplay(Vec<Vec<f32>>);
 
 fn main() {
+    tracing_subscriber::fmt()
+        .with_env_filter(EnvFilter::from_default_env())
+        .init();
     let window = Window {
         title: "IK Satisficer Demo".to_string(),
         ..default()

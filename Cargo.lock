@@ -3568,6 +3568,7 @@ dependencies = [
  "egui_plot",
  "ik3",
  "itertools",
+ "tracing-subscriber",
 ]
 
 [[package]]
