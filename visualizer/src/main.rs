@@ -33,19 +33,33 @@ pub struct ChainComponent(FabrikChain);
 pub struct VelocityDisplay(Vec<Vec<f32>>);
 
 fn main() {
+    let window = Window {
+        title: "IK Satisficer Demo".to_string(),
+        ..default()
+    };
     App::new()
         .add_plugins((
-            DefaultPlugins,
+            DefaultPlugins.set(WindowPlugin {
+                primary_window: Some(window),
+                ..default()
+            }),
             DefaultPickingPlugins,
             bevy_egui::EguiPlugin,
             TransformGizmoPlugin::default(),
         ))
         .add_event::<SyncTransforms>()
+        .add_event::<RecomputeLimb>()
         .insert_resource(Msaa::Sample4)
         .insert_resource(ClearColor(Color::BLACK))
         .init_resource::<UiState>()
         .add_systems(Startup, setup)
-        .add_systems(Update, recompute_limb)
+        .add_systems(
+            Update,
+            recompute_limb
+                .run_if(on_event::<GizmoUpdate>().or_else(on_event::<RecomputeLimb>()))
+                // Control balls being re-synced before computation can reset them to incorrect states
+                .before(sync_ctrl_ball_transform),
+        )
         .add_systems(Update, display_ui)
         .add_systems(
             Update,
@@ -78,9 +92,10 @@ struct Segment {
 }
 
 #[derive(Event, Default)]
-struct SyncTransforms {
-    exclude: Vec<Entity>,
-}
+struct SyncTransforms;
+
+#[derive(Event, Default)]
+struct RecomputeLimb;
 
 #[derive(Bundle, Default)]
 struct ControlBallBundle {
@@ -107,7 +122,6 @@ fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    // mut ev_sync_transforms: EventWriter<SyncTransforms>,
 ) {
     let joints = vec![
         Vec3::new(0.0, 0.0, 0.0),
@@ -213,15 +227,10 @@ fn sync_ball_transform(
 fn sync_ctrl_ball_transform(
     mut query_chain: Query<&mut ChainComponent>,
     mut query_ctrl_ball: Query<(Entity, &ControlBall, &mut Transform)>,
-    mut ev_sync_transforms: EventReader<SyncTransforms>,
 ) {
-    for event in ev_sync_transforms.iter() {
-        let chain = query_chain.single_mut();
-        for (entity, ctrl_ball, mut transform) in query_ctrl_ball.iter_mut() {
-            if !event.exclude.contains(&entity) {
-                *transform = Transform::from_translation(chain.0.joints[ctrl_ball.index]);
-            }
-        }
+    let chain = query_chain.single_mut();
+    for (entity, ctrl_ball, mut transform) in query_ctrl_ball.iter_mut() {
+        *transform = Transform::from_translation(chain.0.joints[ctrl_ball.index]);
     }
 }
 
@@ -243,18 +252,15 @@ fn recompute_limb(
     mut ev_sync_transforms: EventWriter<SyncTransforms>,
 ) {
     let mut chain = query_chain.single_mut();
-    let mut target_entities: Vec<Entity> = Vec::new();
-    for event in ev_gizmo.iter() {
-        match event.clone() {
-            GizmoUpdate::Drag {
-                entity,
-                interaction,
-            } => {
-                target_entities.push(entity);
-            }
-            _ => {}
-        }
-    }
+    let target_entities = ev_gizmo.iter().filter_map(|event| match event.clone() {
+        GizmoUpdate::Drag {
+            entity,
+            interaction: _interaction,
+        } => Some(entity),
+        _ => None,
+    });
+
+    println!("PROCESSING...");
 
     chain.0.targets.clear();
     for entity in target_entities {
@@ -268,6 +274,7 @@ fn recompute_limb(
             .targets
             .push((ball.index, transform.translation.clone()));
     }
+    dbg!(&chain.0.targets);
     chain.0.solve(10);
 
     ev_sync_transforms.send_default();
@@ -284,6 +291,7 @@ fn display_ui(
     mut query: Query<&mut VelocityDisplay>,
     mut query_chain: Query<&mut ChainComponent>,
     mut ui_state: ResMut<UiState>,
+    mut ev_recompute: EventWriter<RecomputeLimb>,
     mut ev_sync_transforms: EventWriter<SyncTransforms>,
 ) {
     let mut chain = query_chain.single_mut();
@@ -302,11 +310,14 @@ fn display_ui(
             .changed()
         {
             chain.0.lock_ground = ui_state.lock_ground;
+            ev_recompute.send_default();
+            ev_sync_transforms.send_default();
         }
-        ui.separator();
         // velocity display is [angle velocity][time]
         // while we need [time][angle velocity]
         let mut velocities: Vec<Vec<[f64; 2]>> = Vec::new();
+        ui.separator();
+        ui.label("Joint angular velocity graph");
         if let Some(first_len) = velocity_display.0.first().map(|x| x.len()) {
             for _ in 0..first_len {
                 velocities.push(Vec::new());
