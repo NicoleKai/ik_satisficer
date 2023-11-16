@@ -12,7 +12,7 @@ use bevy_transform_gizmo::{
 use bevy::{ecs::schedule::ScheduleGraph, prelude::*};
 
 use egui_plot::{BoxPlot, Line, Plot, PlotPoint, PlotPoints, PlotUi};
-use ik3::{self, FabrikChain, PoseDiscrepancy, MotionHeuristics};
+use ik3::{self, FabrikChain, MotionHeuristics, PoseDiscrepancy};
 use itertools::Itertools;
 
 #[derive(Resource)]
@@ -41,6 +41,8 @@ fn main() {
             TransformGizmoPlugin::default(),
         ))
         .add_event::<SyncTransforms>()
+        .add_event::<RecomputeLimb>()
+        .add_event::<MoveLimb>()
         .insert_resource(Msaa::Sample4)
         .insert_resource(ClearColor(Color::BLACK))
         .init_resource::<UiState>()
@@ -80,6 +82,12 @@ struct Segment {
 #[derive(Event, Default)]
 struct SyncTransforms;
 
+#[derive(Event, Default)]
+struct RecomputeLimb;
+
+#[derive(Event, Default)]
+struct MoveLimb;
+
 #[derive(Bundle, Default)]
 struct ControlBallBundle {
     pbr: PbrBundle,
@@ -114,7 +122,7 @@ fn setup(
         Vec3::new(3.0, 0.0, 0.0),
         Vec3::new(4.0, 0.0, 0.0),
     ];
-    let chain = FabrikChain::new(joints,MotionHeuristics::default());
+    let chain = FabrikChain::new(joints, MotionHeuristics::default());
     commands.spawn(VelocityDisplay::default());
 
     // Some light to see something
@@ -253,7 +261,7 @@ fn recompute_limb(
             .push((ball.index, transform.translation.clone()));
     }
 
-    chain.0.solve(10,PoseDiscrepancy::default());
+    chain.0.solve(10, PoseDiscrepancy::default());
 
     ev_sync_transforms.send_default();
     if !chain.0.angular_velocities.is_empty() {
