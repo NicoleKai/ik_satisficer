@@ -14,6 +14,7 @@ use bevy::{ecs::schedule::ScheduleGraph, prelude::*};
 use egui_plot::{BoxPlot, Line, Plot, PlotPoint, PlotPoints, PlotUi};
 use ik3::{self, FabrikChain, MotionHeuristics, PoseDiscrepancy};
 use itertools::Itertools;
+use strum::{EnumIter, IntoEnumIterator};
 
 #[derive(Resource)]
 pub struct UiState {
@@ -88,6 +89,10 @@ fn main() {
         )
         .add_systems(
             Update,
+            handle_limb_switch.run_if(resource_changed::<State<LimbState>>()),
+        )
+        .add_systems(
+            Update,
             sync_ball_transform.run_if(on_event::<SyncTransforms>()),
         )
         .add_systems(
@@ -146,7 +151,7 @@ struct SegmentBundle {
     segment: Segment,
 }
 
-#[derive(States, Default, Debug, Hash, PartialEq, Eq, Clone)]
+#[derive(States, Default, Debug, Hash, PartialEq, Eq, Clone, EnumIter, strum::Display)]
 enum LimbState {
     #[default]
     RealLimb,
@@ -264,6 +269,10 @@ fn sync_ball_transform(
     }
 }
 
+fn handle_limb_switch(mut ev_sync_transforms: EventWriter<SyncTransforms>) {
+    ev_sync_transforms.send_default();
+}
+
 fn sync_ctrl_ball_transform(
     mut query_chain: Query<&mut LimbData>,
     mut query_ctrl_ball: Query<(&ControlBall, &mut Transform)>,
@@ -336,10 +345,10 @@ fn display_ui(
     mut query_chain: Query<&mut LimbData>,
     mut ui_state: ResMut<UiState>,
     mut ev_sync_transforms: EventWriter<SyncTransforms>,
-    mut limb_state: ResMut<State<LimbState>>,
+    limb_state_ro: ResMut<State<LimbState>>,
+    mut limb_state: ResMut<NextState<LimbState>>,
 ) {
     let mut chain = query_chain.single_mut();
-    let limb = chain.get_mut(limb_state.get());
     egui::Window::new("Limb Control").show(context.ctx_mut(), |ui| {
         let mut velocity_display = query.single_mut();
         if ui.button("Reset graph").clicked() {
@@ -347,36 +356,28 @@ fn display_ui(
         }
         if ui.button("Reset all").clicked() {
             velocity_display.0.clear();
-            limb.reset();
+            chain.real_limb.reset();
+            chain.phantom_limb.reset();
             ev_sync_transforms.send_default();
         }
         if ui
             .checkbox(&mut ui_state.lock_ground, "Lock Ground")
             .changed()
         {
-            limb.lock_ground = ui_state.lock_ground;
+            chain.real_limb.lock_ground = ui_state.lock_ground;
+            chain.phantom_limb.lock_ground = ui_state.lock_ground;
         }
 
-        // ui.radio_value(
-        //     &mut limb_state.as_mut().get(),
-        //     &LimbState::RealLimb,
-        //     "Real Limb",
-        // );
-        // ui.radio_value(
-        //     &mut limb_state.as_mut().get(),
-        //     &LimbState::FantasyLimb,
-        //     "Fantasy Limb",
-        // );
-        let curr_limb_state = limb_state.get();
-        if ui
-            .add(egui::RadioButton::new(
-                curr_limb_state == &LimbState::RealLimb,
-                "Real Limb",
-            ))
-            .clicked()
-        {
-            limb_state.as_mut().get();
+        for possible_mode in LimbState::iter() {
+            let name = possible_mode.to_string();
+            if ui
+                .radio_value(&mut limb_state_ro.clone(), possible_mode.clone(), name)
+                .clicked()
+            {
+                limb_state.set(possible_mode);
+            }
         }
+
         ui.separator();
         // velocity display is [angle velocity][time]
         // while we need [time][angle velocity]
