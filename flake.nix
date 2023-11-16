@@ -10,6 +10,7 @@
     flake-utils.lib.eachDefaultSystem (system:
       let
         craneLib = crane.lib.${system};
+        crateInfo = craneLib.crateNameFromCargoToml { cargoToml = ./visualizer/Cargo.toml; };
         pkgs = nixpkgs.legacyPackages.${system};
         lib = pkgs.lib;
         guiInputs = with pkgs; with pkgs.xorg; [ libX11 libXcursor libXrandr libXi vulkan-loader libxkbcommon wayland ];
@@ -31,11 +32,14 @@
       in
     {
       packages.default = craneLib.buildPackage (lib.recursiveUpdate commonEnvironment {
+        pname = crateInfo.pname;
+        version = crateInfo.version;
         nativeBuildInputs = with pkgs; [ makeWrapper ];
         src = lib.cleanSourceWith {
           src = craneLib.path ./.;
           filter = assetsOrCargo;
         };
+        
         postInstall = ''
           ln -s ${./assets} $out/assets
           # TODO: fix that we need to do this -- it isn't appropriate structure
