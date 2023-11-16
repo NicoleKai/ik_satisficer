@@ -12,7 +12,7 @@ use bevy_transform_gizmo::{
 use bevy::{ecs::schedule::ScheduleGraph, prelude::*};
 
 use egui_plot::{BoxPlot, Line, Plot, PlotPoint, PlotPoints, PlotUi};
-use ik3::{self, FabrikChain};
+use ik3::{self, FabrikChain, PoseDiscrepancy, MotionHeuristics};
 use itertools::Itertools;
 
 #[derive(Resource)]
@@ -114,7 +114,7 @@ fn setup(
         Vec3::new(3.0, 0.0, 0.0),
         Vec3::new(4.0, 0.0, 0.0),
     ];
-    let chain = FabrikChain::new(joints);
+    let chain = FabrikChain::new(joints,MotionHeuristics::default());
     commands.spawn(VelocityDisplay::default());
 
     // Some light to see something
@@ -253,7 +253,7 @@ fn recompute_limb(
             .push((ball.index, transform.translation.clone()));
     }
 
-    chain.0.solve(10);
+    chain.0.solve(10,PoseDiscrepancy::default());
 
     ev_sync_transforms.send_default();
     if !chain.0.angular_velocities.is_empty() {

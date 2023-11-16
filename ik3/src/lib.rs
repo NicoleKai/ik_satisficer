@@ -17,11 +17,19 @@ pub enum PoseDiscrepancy{
 
 }
 
-#[derive(Debug, Clone)]
-pub struct MotionHeuristics {
-    pub anchor_points: Vec<(usize, Vec3, Quat)>,
-    pub parent_ranking: Vec<(usize, i32)>
+type AnchorPoints =Vec<(usize, Vec3, Quat)>;
+type ParentRanking = Vec<(usize, i32)>;
 
+#[derive(Debug, Clone, Default)]
+pub struct MotionHeuristics {
+    pub anchor_points: AnchorPoints,
+    pub parent_ranking: ParentRanking
+
+}
+impl MotionHeuristics{
+    fn new(anchor_points:AnchorPoints, parent_ranking:ParentRanking) -> Self {
+        Self{anchor_points, parent_ranking}
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -200,11 +208,7 @@ mod tests {
             Vec3::new(1.0, 0.0, 0.0),
             Vec3::new(2.0, 0.0, 0.0),
         ];
-        let motion_heuristics = MotionHeuristics {
-            anchor_points: Vec::new(),
-            parent_ranking: Vec::new(),
-
-        };
+        let motion_heuristics = MotionHeuristics::new(Vec::new(), Vec::new());
         let chain = FabrikChain::new(joints,motion_heuristics);
         dbg!(&chain);
 
