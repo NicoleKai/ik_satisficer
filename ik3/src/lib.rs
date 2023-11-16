@@ -6,6 +6,7 @@ use std::{
 use bevy_math::{Mat3, Quat, Vec3};
 use bevy_transform::prelude::Transform;
 
+
 #[derive(Default)]
 pub enum PoseDiscrepancy {
     #[default]
@@ -182,8 +183,8 @@ impl FabrikChain {
                 self.recalculate();
             }
             PoseDiscrepancy::MildDivergence => {
-                todo!(); // Adjusted solving process to correct mild discrepancies via non-linear optimization
-                         // Will be using Levenberg–Marquardt algorithm
+                todo!();
+                //fn
             }
             PoseDiscrepancy::SevereDivergence => {
                 todo!(); // More intensive adjustments or alternative strategies
