@@ -63,6 +63,10 @@
                      -c commiter.name=$name \
                      -c commiter.email=$email "$@"
           '')            
+          (pkgs.writeShellScriptBin "xclip" ''
+            # xclip wrapper that strips our LD_LIBRARY_PATH out to prevent breaking the fragile snowflake C code
+            LD_LIBRARY_PATH="" ${pkgs.xclip}/bin/xclip "$@"
+          '')
           (pkgs.writeShellScriptBin "run" ''
             cargo --locked run --features bevy/dynamic_linking "$@"
           '')

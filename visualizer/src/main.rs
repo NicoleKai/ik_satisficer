@@ -47,8 +47,19 @@ fn main() {
         .insert_resource(ClearColor(Color::BLACK))
         .init_resource::<UiState>()
         .add_systems(Startup, setup)
-        .add_systems(Update, recompute_limb)
         .add_systems(Update, display_ui)
+        .add_systems(
+            Update,
+            move_limb
+                .run_if(on_event::<GizmoUpdate>().or_else(on_event::<MoveLimb>()))
+                .before(recompute_limb),
+        )
+        .add_systems(
+            Update,
+            recompute_limb
+                .run_if(on_event::<GizmoUpdate>().or_else(on_event::<RecomputeLimb>()))
+                .before(sync_ctrl_ball_transform),
+        )
         .add_systems(
             Update,
             sync_ball_transform.run_if(on_event::<SyncTransforms>()),
@@ -233,6 +244,42 @@ fn sync_segment_transform(
     let chain = query_chain.single_mut();
     for (segment, mut transform) in query_segment.iter_mut() {
         *transform = chain.0.segment_transforms[segment.index];
+    }
+}
+
+fn recompute_limb(
+    query_ctrl_ball: Query<(&ControlBall, &Transform)>,
+    mut query_chain: Query<&mut ChainComponent>,
+    mut query_velocity_display: Query<&mut VelocityDisplay>,
+    mut ev_gizmo: EventReader<GizmoUpdate>,
+    mut ev_sync_transforms: EventWriter<SyncTransforms>,
+) {
+    let mut excluded: Vec<usize> = Vec::new();
+    if ev_gizmo.is_empty() {
+        return;
+    }
+
+    let mut chain = query_chain.single_mut();
+    chain.0.targets.clear();
+    for event in ev_gizmo.iter() {
+        let (ball, transform) = query_ctrl_ball
+            .get(event.entity)
+            .expect("Something is moving but it's not a ball!");
+        excluded.push(ball.index);
+        chain
+            .0
+            .targets
+            .push((ball.index, transform.translation.clone()));
+    }
+
+    chain.0.solve(10, PoseDiscrepancy::default());
+
+    ev_sync_transforms.send_default();
+    if !chain.0.angular_velocities.is_empty() {
+        query_velocity_display
+            .single_mut()
+            .0
+            .push(chain.0.angular_velocities.clone());
     }
 }
 
