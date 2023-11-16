@@ -23,6 +23,7 @@ pub struct MotionHeuristics {
     pub anchor_points: AnchorPoints,
     pub parent_ranking: ParentRanking,
 }
+
 impl MotionHeuristics {
     fn new(anchor_points: AnchorPoints, parent_ranking: ParentRanking) -> Self {
         Self {

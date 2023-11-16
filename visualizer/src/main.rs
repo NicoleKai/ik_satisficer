@@ -247,12 +247,11 @@ fn sync_segment_transform(
     }
 }
 
-fn recompute_limb(
+fn move_limb(
     query_ctrl_ball: Query<(&ControlBall, &Transform)>,
     mut query_chain: Query<&mut ChainComponent>,
-    mut query_velocity_display: Query<&mut VelocityDisplay>,
     mut ev_gizmo: EventReader<GizmoUpdate>,
-    mut ev_sync_transforms: EventWriter<SyncTransforms>,
+    mut ev_recompute: EventWriter<RecomputeLimb>,
 ) {
     let mut excluded: Vec<usize> = Vec::new();
     if ev_gizmo.is_empty() {
@@ -271,52 +270,25 @@ fn recompute_limb(
             .targets
             .push((ball.index, transform.translation.clone()));
     }
-
-    chain.0.solve(10, PoseDiscrepancy::default());
-
-    ev_sync_transforms.send_default();
-    if !chain.0.angular_velocities.is_empty() {
-        query_velocity_display
-            .single_mut()
-            .0
-            .push(chain.0.angular_velocities.clone());
-    }
+    ev_recompute.send_default();
 }
 
 fn recompute_limb(
-    query_ctrl_ball: Query<(&ControlBall, &Transform)>,
     mut query_chain: Query<&mut ChainComponent>,
     mut query_velocity_display: Query<&mut VelocityDisplay>,
-    mut ev_gizmo: EventReader<GizmoUpdate>,
     mut ev_sync_transforms: EventWriter<SyncTransforms>,
 ) {
-    let mut excluded: Vec<usize> = Vec::new();
-    if ev_gizmo.is_empty() {
-        return;
-    }
-
     let mut chain = query_chain.single_mut();
-    chain.0.targets.clear();
-    for event in ev_gizmo.iter() {
-        let (ball, transform) = query_ctrl_ball
-            .get(event.entity)
-            .expect("Something is moving but it's not a ball!");
-        excluded.push(ball.index);
-        chain
-            .0
-            .targets
-            .push((ball.index, transform.translation.clone()));
-    }
 
     chain.0.solve(10, PoseDiscrepancy::default());
 
-    ev_sync_transforms.send_default();
     if !chain.0.angular_velocities.is_empty() {
         query_velocity_display
             .single_mut()
             .0
             .push(chain.0.angular_velocities.clone());
     }
+    ev_sync_transforms.send_default();
 }
 
 fn display_ui(
