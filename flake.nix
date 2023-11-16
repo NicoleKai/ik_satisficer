@@ -41,9 +41,6 @@
         # src = ./.;
         
         postInstall = ''
-          ln -s ${visualizer/assets} $out/assets
-          # TODO: fix that we need to do this -- it isn't appropriate structure
-          ln -s $out/assets $out/bin/assets
           wrapProgram "$out/bin/${crateInfo.pname}" \
             --prefix LD_LIBRARY_PATH : "${LD_LIBRARY_PATH}"
         '';
