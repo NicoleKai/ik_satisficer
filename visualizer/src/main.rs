@@ -103,20 +103,23 @@ fn main() {
         .run();
 }
 
-#[derive(Component, Default, Debug)]
+#[derive(Component, Default, Debug, Clone)]
 struct ControlBall {
     index: usize,
 }
 
-#[derive(Component, Default, Debug)]
+#[derive(Component, Default, Debug, Clone)]
 struct InnerBall {
     index: usize,
 }
 
-#[derive(Component, Default, Debug)]
+#[derive(Component, Default, Debug, Clone)]
 struct Segment {
     index: usize,
 }
+
+#[derive(Component, Default, Debug, Clone)]
+struct FantasyComponent;
 
 #[derive(Event, Default)]
 struct SyncTransforms;
@@ -136,13 +139,13 @@ struct ControlBallBundle {
     control_ball: ControlBall,
 }
 
-#[derive(Bundle, Default)]
+#[derive(Bundle, Default, Clone)]
 struct InnerBallBundle {
     pbr: PbrBundle,
     inner_ball: InnerBall,
 }
 
-#[derive(Bundle, Default)]
+#[derive(Bundle, Default, Clone)]
 struct SegmentBundle {
     pbr: PbrBundle,
     segment: Segment,
@@ -199,7 +202,7 @@ fn setup(
         ..default()
     });
     for i in 0..limb.joints.len() {
-        commands.spawn(InnerBallBundle {
+        let inner_ball_bundle = InnerBallBundle {
             pbr: PbrBundle {
                 mesh: ball_mesh.clone(),
                 material: material.clone(),
@@ -208,7 +211,9 @@ fn setup(
             },
             inner_ball: InnerBall { index: i },
             ..default()
-        });
+        };
+        commands.spawn((inner_ball_bundle.clone(), FantasyComponent));
+        commands.spawn(inner_ball_bundle);
         commands.spawn(ControlBallBundle {
             pbr: PbrBundle {
                 mesh: control_ball_mesh.clone(),
@@ -227,7 +232,7 @@ fn setup(
             height: limb.lengths[i],
             ..default()
         }));
-        commands.spawn(SegmentBundle {
+        let segment_bundle = SegmentBundle {
             pbr: PbrBundle {
                 mesh: cylinder_mesh,
                 material: material.clone(),
@@ -236,7 +241,9 @@ fn setup(
             },
             segment: Segment { index: i },
             ..default()
-        });
+        };
+        commands.spawn((segment_bundle.clone(), FantasyComponent));
+        commands.spawn(segment_bundle);
     }
     limb.finalize();
     commands.spawn(LimbData(limb));
@@ -255,14 +262,17 @@ fn setup(
 
 fn sync_ball_transform(
     mut query_chain: Query<&mut LimbData>,
-    mut query_ball: Query<(&InnerBall, &mut Transform)>,
-    limb_state: Res<State<LimbState>>,
+    mut query_ball: Query<(&InnerBall, &mut Transform), Without<FantasyComponent>>,
+    mut query_ball_fantasy: Query<(&InnerBall, &mut Transform), With<FantasyComponent>>,
 ) {
     let chain = query_chain.single_mut();
-    let limb = chain.get(&limb_state.get());
 
     for (ball, mut transform) in query_ball.iter_mut() {
-        *transform = Transform::from_translation(limb.joints[ball.index]);
+        *transform = Transform::from_translation(chain.0.joints[ball.index]);
+    }
+    for (ball, mut transform) in query_ball_fantasy.iter_mut() {
+        *transform =
+            Transform::from_translation(chain.0.fantasy_limb.as_ref().unwrap().joints[ball.index]);
     }
 }
 
@@ -284,13 +294,15 @@ fn sync_ctrl_ball_transform(
 
 fn sync_segment_transform(
     mut query_chain: Query<&mut LimbData>,
-    mut query_segment: Query<(&Segment, &mut Transform)>,
-    limb_state: Res<State<LimbState>>,
+    mut query_segment: Query<(&Segment, &mut Transform), Without<FantasyComponent>>,
+    mut query_segment_fantasy: Query<(&Segment, &mut Transform), With<FantasyComponent>>,
 ) {
     let chain = query_chain.single_mut();
-    let limb = chain.get(&limb_state.get());
     for (segment, mut transform) in query_segment.iter_mut() {
-        *transform = limb.segment_transforms[segment.index];
+        *transform = chain.0.segment_transforms[segment.index];
+    }
+    for (segment, mut transform) in query_segment_fantasy.iter_mut() {
+        *transform = chain.0.fantasy_limb.as_ref().unwrap().segment_transforms[segment.index];
     }
 }
 
