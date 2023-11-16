@@ -193,8 +193,11 @@ impl FabrikChain {
                 self.recalculate();
             }
             PoseDiscrepancy::MildDivergence => {
-                todo!();
-                //fn
+                for i in 0..self.joints.len() {
+                    let residual_vec = self.fantasy_limb.as_ref().unwrap().joints[i] - self.joints[i];
+                    let r_hat = residual_vec.normalize();
+
+                }
             }
             PoseDiscrepancy::SevereDivergence => {
                 todo!(); // More intensive adjustments or alternative strategies
