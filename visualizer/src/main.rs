@@ -262,34 +262,42 @@ fn setup(
 fn sync_ball_transform(
     mut query_chain: Query<&mut LimbData>,
     mut query_ball: Query<(&InnerBall, &mut Transform)>,
+    limb_state: Res<State<LimbState>>,
 ) {
     let chain = query_chain.single_mut();
+    let limb = chain.get(&limb_state.get());
+
     for (ball, mut transform) in query_ball.iter_mut() {
-        *transform = Transform::from_translation(chain.real_limb.joints[ball.index]);
+        *transform = Transform::from_translation(limb.joints[ball.index]);
     }
 }
 
 fn handle_limb_switch(mut ev_sync_transforms: EventWriter<SyncTransforms>) {
+    dbg!("pls");
     ev_sync_transforms.send_default();
 }
 
 fn sync_ctrl_ball_transform(
     mut query_chain: Query<&mut LimbData>,
     mut query_ctrl_ball: Query<(&ControlBall, &mut Transform)>,
+    limb_state: Res<State<LimbState>>,
 ) {
     let chain = query_chain.single_mut();
+    let limb = chain.get(&limb_state.get());
     for (ctrl_ball, mut transform) in query_ctrl_ball.iter_mut() {
-        *transform = Transform::from_translation(chain.real_limb.joints[ctrl_ball.index]);
+        *transform = Transform::from_translation(limb.joints[ctrl_ball.index]);
     }
 }
 
 fn sync_segment_transform(
     mut query_chain: Query<&mut LimbData>,
     mut query_segment: Query<(&Segment, &mut Transform)>,
+    limb_state: Res<State<LimbState>>,
 ) {
     let chain = query_chain.single_mut();
+    let limb = chain.get(&limb_state.get());
     for (segment, mut transform) in query_segment.iter_mut() {
-        *transform = chain.real_limb.segment_transforms[segment.index];
+        *transform = limb.segment_transforms[segment.index];
     }
 }
 
