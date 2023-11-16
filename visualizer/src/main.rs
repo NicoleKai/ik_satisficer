@@ -28,22 +28,19 @@ impl Default for UiState {
 }
 
 #[derive(Component)]
-pub struct LimbData {
-    real_limb: FabrikChain,
-    phantom_limb: FabrikChain,
-}
+pub struct LimbData(FabrikChain);
 
 impl LimbData {
     fn get_mut(&mut self, state: &LimbState) -> &mut FabrikChain {
         match state {
-            LimbState::RealLimb => &mut self.real_limb,
-            LimbState::FantasyLimb => &mut self.phantom_limb,
+            LimbState::RealLimb => &mut self.0,
+            LimbState::FantasyLimb => self.0.fantasy_limb.as_mut().unwrap(),
         }
     }
     fn get(&self, state: &LimbState) -> &FabrikChain {
         match state {
-            LimbState::RealLimb => &self.real_limb,
-            LimbState::FantasyLimb => &self.phantom_limb,
+            LimbState::RealLimb => &self.0,
+            LimbState::FantasyLimb => &self.0.fantasy_limb.as_ref().unwrap(),
         }
     }
 }
@@ -171,8 +168,7 @@ fn setup(
         Vec3::new(3.0, 0.0, 0.0),
         Vec3::new(4.0, 0.0, 0.0),
     ];
-    let real_limb = FabrikChain::new(joints, MotionHeuristics::default());
-    let phantom_limb = real_limb.clone();
+    let mut limb = FabrikChain::new(joints, MotionHeuristics::default());
     commands.spawn(VelocityDisplay::default());
 
     // Some light to see something
@@ -202,12 +198,12 @@ fn setup(
         base_color: Color::rgba(0.7, 0.7, 1.0, 0.2),
         ..default()
     });
-    for i in 0..real_limb.joints.len() {
+    for i in 0..limb.joints.len() {
         commands.spawn(InnerBallBundle {
             pbr: PbrBundle {
                 mesh: ball_mesh.clone(),
                 material: material.clone(),
-                transform: Transform::from_translation(real_limb.joints[i]),
+                transform: Transform::from_translation(limb.joints[i]),
                 ..Default::default()
             },
             inner_ball: InnerBall { index: i },
@@ -217,7 +213,7 @@ fn setup(
             pbr: PbrBundle {
                 mesh: control_ball_mesh.clone(),
                 material: translucent_material.clone(),
-                transform: Transform::from_translation(real_limb.joints[i]),
+                transform: Transform::from_translation(limb.joints[i]),
                 ..Default::default()
             },
             control_ball: ControlBall { index: i },
@@ -225,27 +221,25 @@ fn setup(
         });
     }
 
-    for i in 0..real_limb.lengths.len() {
+    for i in 0..limb.lengths.len() {
         let cylinder_mesh = meshes.add(Mesh::from(shape::Cylinder {
             radius: 0.15,
-            height: real_limb.lengths[i],
+            height: limb.lengths[i],
             ..default()
         }));
         commands.spawn(SegmentBundle {
             pbr: PbrBundle {
                 mesh: cylinder_mesh,
                 material: material.clone(),
-                transform: real_limb.segment_transforms[i],
+                transform: limb.segment_transforms[i],
                 ..Default::default()
             },
             segment: Segment { index: i },
             ..default()
         });
     }
-    commands.spawn(LimbData {
-        real_limb,
-        phantom_limb,
-    });
+    limb.finalize();
+    commands.spawn(LimbData(limb));
 
     ev_sync_transforms.send_default();
     // The camera
@@ -273,7 +267,6 @@ fn sync_ball_transform(
 }
 
 fn handle_limb_switch(mut ev_sync_transforms: EventWriter<SyncTransforms>) {
-    dbg!("pls");
     ev_sync_transforms.send_default();
 }
 
@@ -364,16 +357,15 @@ fn display_ui(
         }
         if ui.button("Reset all").clicked() {
             velocity_display.0.clear();
-            chain.real_limb.reset();
-            chain.phantom_limb.reset();
+            chain.0.reset();
             ev_sync_transforms.send_default();
         }
         if ui
             .checkbox(&mut ui_state.lock_ground, "Lock Ground")
             .changed()
         {
-            chain.real_limb.lock_ground = ui_state.lock_ground;
-            chain.phantom_limb.lock_ground = ui_state.lock_ground;
+            chain.0.lock_ground = ui_state.lock_ground;
+            chain.0.fantasy_limb.as_mut().unwrap().lock_ground = ui_state.lock_ground;
         }
 
         for possible_mode in LimbState::iter() {

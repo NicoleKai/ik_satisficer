@@ -6,7 +6,6 @@ use std::{
 use bevy_math::{Mat3, Quat, Vec3};
 use bevy_transform::prelude::Transform;
 
-
 #[derive(Default)]
 pub enum PoseDiscrepancy {
     #[default]
@@ -46,6 +45,7 @@ pub struct FabrikChain {
     pub motion_heuristics: MotionHeuristics,
     pub prev_time: SystemTime,
     pub lock_ground: bool,
+    pub fantasy_limb: Option<Box<Self>>,
     // FIXME: first reading computation will be way off, start with prev_time option being none, and set it to some
     // so as to skip the first computation frame
     initial_state: Option<Box<Self>>,
@@ -70,14 +70,24 @@ impl FabrikChain {
             motion_heuristics,
             targets: Vec::new(),
             lock_ground: true,
+            fantasy_limb: None,
         };
 
         let mut final_self = Self {
+            fantasy_limb: Some(Box::new(new_self.clone())),
             initial_state: Some(Box::new(new_self.clone())),
             ..new_self
         };
         final_self.recalculate();
         final_self
+    }
+
+    pub fn finalize(&mut self) -> &mut Self {
+        let mut new_self = self.clone();
+        let new_fantasy = self.clone();
+        new_self.fantasy_limb = Some(Box::new(new_fantasy));
+        *self = new_self;
+        self
     }
 
     pub fn get_ee(&self) -> &Vec3 {
