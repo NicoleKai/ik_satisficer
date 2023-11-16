@@ -28,7 +28,6 @@
         };
         assetsFilter = path: _type: builtins.match ".*assets$" path != null;
         assetsOrCargo = path: type: (assetsFilter path type) || (craneLib.filterCargoSources path type);
-        programBin = "bevy-template";
       in
     {
       packages.default = craneLib.buildPackage (lib.recursiveUpdate commonEnvironment {
@@ -44,7 +43,7 @@
           ln -s ${./assets} $out/assets
           # TODO: fix that we need to do this -- it isn't appropriate structure
           ln -s $out/assets $out/bin/assets
-          wrapProgram "$out/bin/${programBin}" \
+          wrapProgram "$out/bin/${crateInfo.pname}" \
             --prefix LD_LIBRARY_PATH : "${LD_LIBRARY_PATH}"
         '';
         # doCheck = true;
