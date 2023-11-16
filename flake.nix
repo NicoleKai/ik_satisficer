@@ -38,9 +38,10 @@
           src = craneLib.path ./.;
           filter = assetsOrCargo;
         };
+        # src = ./.;
         
         postInstall = ''
-          ln -s ${./assets} $out/assets
+          ln -s ${visualizer/assets} $out/assets
           # TODO: fix that we need to do this -- it isn't appropriate structure
           ln -s $out/assets $out/bin/assets
           wrapProgram "$out/bin/${crateInfo.pname}" \
