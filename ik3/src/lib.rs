@@ -78,7 +78,7 @@ impl FabrikChain {
             initial_state: Some(Box::new(new_self.clone())),
             ..new_self
         };
-        final_self.recalculate();
+        final_self.recalculate_segments();
         final_self
     }
 
@@ -94,7 +94,7 @@ impl FabrikChain {
         self.joints.last().expect("Joints should not be empty")
     }
 
-    pub fn recalculate(&mut self) {
+    pub fn recalculate_segments(&mut self) {
         let frame_delta_time = self
             .prev_time
             .elapsed()
@@ -145,7 +145,7 @@ impl FabrikChain {
             initial_state: Some(initial_state.clone()),
             ..*initial_state
         };
-        self.recalculate();
+        self.recalculate_segments();
     }
 
     pub fn fwd_reach(&mut self) {
@@ -168,7 +168,22 @@ impl FabrikChain {
         }
     }
 
+    pub fn recalculate_angles(&mut self) {
+        std::mem::swap(&mut self.angles, &mut self.prev_angles);
+        self.angles.clear();
+        self.angles.push(std::f32::consts::PI);
+        for i in 2..self.joints.len() {
+            let a = self.joints[i - 2];
+            let b = self.joints[i - 1];
+            let c = self.joints[i];
+            let angle = (a - b).angle_between(c - b);
+            self.angles.push(angle);
+        }
+        self.angles.push(std::f32::consts::PI);
+    }
+
     pub fn solve(&mut self, iterations: usize, pose_discrepancy: PoseDiscrepancy) {
+        self.recalculate_angles();
         match pose_discrepancy {
             PoseDiscrepancy::WithinTolerance => {
                 for _ in 0..iterations {
@@ -180,22 +195,22 @@ impl FabrikChain {
                         self.joints.first_mut().unwrap().clone_from(&Vec3::ZERO);
                     }
                     self.bwd_reach();
+                    for i in 0..self.joints.len() {
+                        dbg!(self.angles[i]);
+                    }
                 }
-                std::mem::swap(&mut self.angles, &mut self.prev_angles);
-                self.angles.clear();
-                for i in 2..self.joints.len() {
-                    let a = self.joints[i - 2];
-                    let b = self.joints[i - 1];
-                    let c = self.joints[i];
-                    let angle = (a - b).angle_between(c - b);
-                    self.angles.push(angle);
-                }
-                self.recalculate();
             }
             PoseDiscrepancy::MildDivergence => {
                 for i in 0..self.joints.len() {
+                    
                     let residual_vec = self.fantasy_limb.as_ref().unwrap().joints[i] - self.joints[i];
+                    let infinitesimal_approximation= residual_vec / 2.;
                     let r_hat = residual_vec.normalize();
+                    dbg!(self.angles[i]);
+
+                    
+                    // let d_r = 
+
 
                 }
             }
@@ -206,6 +221,8 @@ impl FabrikChain {
                 todo!(); // Special handling for environmental factors, introducing intentional divergences
             }
         }
+        self.recalculate_segments();
+
     }
 }
 
