@@ -27,15 +27,41 @@ impl Default for UiState {
 }
 
 #[derive(Component)]
-pub struct ChainComponent(FabrikChain);
+pub struct LimbData {
+    real_limb: FabrikChain,
+    phantom_limb: FabrikChain,
+}
+
+impl LimbData {
+    fn get_mut(&mut self, state: &LimbState) -> &mut FabrikChain {
+        match state {
+            LimbState::RealLimb => &mut self.real_limb,
+            LimbState::FantasyLimb => &mut self.phantom_limb,
+        }
+    }
+    fn get(&self, state: &LimbState) -> &FabrikChain {
+        match state {
+            LimbState::RealLimb => &self.real_limb,
+            LimbState::FantasyLimb => &self.phantom_limb,
+        }
+    }
+}
 
 #[derive(Component, Default)]
 pub struct VelocityDisplay(Vec<Vec<f32>>);
 
 fn main() {
+    let window = Window {
+        title: "IK Satisficer Demo [DISPLAY_TESTING]".to_string(),
+        ..default()
+    };
     App::new()
+        .add_state::<LimbState>()
         .add_plugins((
-            DefaultPlugins,
+            DefaultPlugins.set(WindowPlugin {
+                primary_window: Some(window),
+                ..default()
+            }),
             DefaultPickingPlugins,
             bevy_egui::EguiPlugin,
             TransformGizmoPlugin::default(),
@@ -120,6 +146,13 @@ struct SegmentBundle {
     segment: Segment,
 }
 
+#[derive(States, Default, Debug, Hash, PartialEq, Eq, Clone)]
+enum LimbState {
+    #[default]
+    RealLimb,
+    FantasyLimb,
+}
+
 fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -133,7 +166,8 @@ fn setup(
         Vec3::new(3.0, 0.0, 0.0),
         Vec3::new(4.0, 0.0, 0.0),
     ];
-    let chain = FabrikChain::new(joints, MotionHeuristics::default());
+    let real_limb = FabrikChain::new(joints, MotionHeuristics::default());
+    let phantom_limb = real_limb.clone();
     commands.spawn(VelocityDisplay::default());
 
     // Some light to see something
@@ -163,12 +197,12 @@ fn setup(
         base_color: Color::rgba(0.7, 0.7, 1.0, 0.2),
         ..default()
     });
-    for i in 0..chain.joints.len() {
+    for i in 0..real_limb.joints.len() {
         commands.spawn(InnerBallBundle {
             pbr: PbrBundle {
                 mesh: ball_mesh.clone(),
                 material: material.clone(),
-                transform: Transform::from_translation(chain.joints[i]),
+                transform: Transform::from_translation(real_limb.joints[i]),
                 ..Default::default()
             },
             inner_ball: InnerBall { index: i },
@@ -178,7 +212,7 @@ fn setup(
             pbr: PbrBundle {
                 mesh: control_ball_mesh.clone(),
                 material: translucent_material.clone(),
-                transform: Transform::from_translation(chain.joints[i]),
+                transform: Transform::from_translation(real_limb.joints[i]),
                 ..Default::default()
             },
             control_ball: ControlBall { index: i },
@@ -186,24 +220,27 @@ fn setup(
         });
     }
 
-    for i in 0..chain.lengths.len() {
+    for i in 0..real_limb.lengths.len() {
         let cylinder_mesh = meshes.add(Mesh::from(shape::Cylinder {
             radius: 0.15,
-            height: chain.lengths[i],
+            height: real_limb.lengths[i],
             ..default()
         }));
         commands.spawn(SegmentBundle {
             pbr: PbrBundle {
                 mesh: cylinder_mesh,
                 material: material.clone(),
-                transform: chain.segment_transforms[i],
+                transform: real_limb.segment_transforms[i],
                 ..Default::default()
             },
             segment: Segment { index: i },
             ..default()
         });
     }
-    commands.spawn(ChainComponent(chain));
+    commands.spawn(LimbData {
+        real_limb,
+        phantom_limb,
+    });
 
     ev_sync_transforms.send_default();
     // The camera
@@ -218,40 +255,41 @@ fn setup(
 }
 
 fn sync_ball_transform(
-    mut query_chain: Query<&mut ChainComponent>,
+    mut query_chain: Query<&mut LimbData>,
     mut query_ball: Query<(&InnerBall, &mut Transform)>,
 ) {
     let chain = query_chain.single_mut();
     for (ball, mut transform) in query_ball.iter_mut() {
-        *transform = Transform::from_translation(chain.0.joints[ball.index]);
+        *transform = Transform::from_translation(chain.real_limb.joints[ball.index]);
     }
 }
 
 fn sync_ctrl_ball_transform(
-    mut query_chain: Query<&mut ChainComponent>,
+    mut query_chain: Query<&mut LimbData>,
     mut query_ctrl_ball: Query<(&ControlBall, &mut Transform)>,
 ) {
     let chain = query_chain.single_mut();
     for (ctrl_ball, mut transform) in query_ctrl_ball.iter_mut() {
-        *transform = Transform::from_translation(chain.0.joints[ctrl_ball.index]);
+        *transform = Transform::from_translation(chain.real_limb.joints[ctrl_ball.index]);
     }
 }
 
 fn sync_segment_transform(
-    mut query_chain: Query<&mut ChainComponent>,
+    mut query_chain: Query<&mut LimbData>,
     mut query_segment: Query<(&Segment, &mut Transform)>,
 ) {
     let chain = query_chain.single_mut();
     for (segment, mut transform) in query_segment.iter_mut() {
-        *transform = chain.0.segment_transforms[segment.index];
+        *transform = chain.real_limb.segment_transforms[segment.index];
     }
 }
 
 fn move_limb(
     query_ctrl_ball: Query<(&ControlBall, &Transform)>,
-    mut query_chain: Query<&mut ChainComponent>,
+    mut query_chain: Query<&mut LimbData>,
     mut ev_gizmo: EventReader<GizmoUpdate>,
     mut ev_recompute: EventWriter<RecomputeLimb>,
+    limb_state: Res<State<LimbState>>,
 ) {
     let mut excluded: Vec<usize> = Vec::new();
     if ev_gizmo.is_empty() {
@@ -259,34 +297,35 @@ fn move_limb(
     }
 
     let mut chain = query_chain.single_mut();
-    chain.0.targets.clear();
+    let limb = chain.get_mut(limb_state.get());
+    limb.targets.clear();
     for event in ev_gizmo.iter() {
         let (ball, transform) = query_ctrl_ball
             .get(event.entity)
             .expect("Something is moving but it's not a ball!");
         excluded.push(ball.index);
-        chain
-            .0
-            .targets
+        limb.targets
             .push((ball.index, transform.translation.clone()));
     }
     ev_recompute.send_default();
 }
 
 fn recompute_limb(
-    mut query_chain: Query<&mut ChainComponent>,
+    mut query_chain: Query<&mut LimbData>,
     mut query_velocity_display: Query<&mut VelocityDisplay>,
     mut ev_sync_transforms: EventWriter<SyncTransforms>,
+    limb_state: Res<State<LimbState>>,
 ) {
     let mut chain = query_chain.single_mut();
+    let limb = chain.get_mut(limb_state.get());
 
-    chain.0.solve(10, PoseDiscrepancy::default());
+    limb.solve(10, PoseDiscrepancy::default());
 
-    if !chain.0.angular_velocities.is_empty() {
+    if !limb.angular_velocities.is_empty() {
         query_velocity_display
             .single_mut()
             .0
-            .push(chain.0.angular_velocities.clone());
+            .push(limb.angular_velocities.clone());
     }
     ev_sync_transforms.send_default();
 }
@@ -294,11 +333,13 @@ fn recompute_limb(
 fn display_ui(
     mut context: EguiContexts,
     mut query: Query<&mut VelocityDisplay>,
-    mut query_chain: Query<&mut ChainComponent>,
+    mut query_chain: Query<&mut LimbData>,
     mut ui_state: ResMut<UiState>,
     mut ev_sync_transforms: EventWriter<SyncTransforms>,
+    mut limb_state: ResMut<State<LimbState>>,
 ) {
     let mut chain = query_chain.single_mut();
+    let limb = chain.get_mut(limb_state.get());
     egui::Window::new("Limb Control").show(context.ctx_mut(), |ui| {
         let mut velocity_display = query.single_mut();
         if ui.button("Reset graph").clicked() {
@@ -306,14 +347,35 @@ fn display_ui(
         }
         if ui.button("Reset all").clicked() {
             velocity_display.0.clear();
-            chain.0.reset();
+            limb.reset();
             ev_sync_transforms.send_default();
         }
         if ui
             .checkbox(&mut ui_state.lock_ground, "Lock Ground")
             .changed()
         {
-            chain.0.lock_ground = ui_state.lock_ground;
+            limb.lock_ground = ui_state.lock_ground;
+        }
+
+        // ui.radio_value(
+        //     &mut limb_state.as_mut().get(),
+        //     &LimbState::RealLimb,
+        //     "Real Limb",
+        // );
+        // ui.radio_value(
+        //     &mut limb_state.as_mut().get(),
+        //     &LimbState::FantasyLimb,
+        //     "Fantasy Limb",
+        // );
+        let curr_limb_state = limb_state.get();
+        if ui
+            .add(egui::RadioButton::new(
+                curr_limb_state == &LimbState::RealLimb,
+                "Real Limb",
+            ))
+            .clicked()
+        {
+            limb_state.as_mut().get();
         }
         ui.separator();
         // velocity display is [angle velocity][time]
