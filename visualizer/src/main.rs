@@ -9,7 +9,7 @@ use bevy_transform_gizmo::{
     TransformGizmoPlugin,
 };
 
-use bevy::{ecs::schedule::ScheduleGraph, prelude::*};
+use bevy::{ecs::schedule::ScheduleGraph, pbr::PointLightShadowMap, prelude::*};
 
 use egui_plot::{BoxPlot, Line, Plot, PlotPoint, PlotPoints, PlotUi};
 use ik3::{self, FabrikChain, MotionHeuristics, PoseDiscrepancy};
@@ -69,6 +69,7 @@ fn main() {
         .add_event::<MoveLimb>()
         .insert_resource(Msaa::Sample4)
         .insert_resource(ClearColor(Color::BLACK))
+        .insert_resource(PointLightShadowMap { size: 8192 })
         .init_resource::<UiState>()
         .add_systems(Startup, setup)
         .add_systems(Update, display_ui)
@@ -195,25 +196,38 @@ fn setup(
         radius: 0.3,
         ..default()
     }));
+    let fantasy_ball_mesh = meshes.add(Mesh::from(shape::UVSphere {
+        radius: 0.3 * 0.999,
+        ..default()
+    }));
     let material = materials.add(StandardMaterial::default());
+    let fantasy_material = materials.add(StandardMaterial {
+        base_color: Color::rgba(0.19, 0.0, 0.5, 1.0),
+        ..default()
+    });
     let translucent_material = materials.add(StandardMaterial {
         alpha_mode: AlphaMode::Mask(0.5),
         base_color: Color::rgba(0.7, 0.7, 1.0, 0.2),
         ..default()
     });
     for i in 0..limb.joints.len() {
-        let inner_ball_bundle = InnerBallBundle {
+        let transform = Transform::from_translation(limb.joints[i]);
+        let mut inner_ball_bundle = InnerBallBundle {
             pbr: PbrBundle {
                 mesh: ball_mesh.clone(),
                 material: material.clone(),
-                transform: Transform::from_translation(limb.joints[i]),
+                transform,
                 ..Default::default()
             },
             inner_ball: InnerBall { index: i },
             ..default()
         };
-        commands.spawn((inner_ball_bundle.clone(), FantasyComponent));
-        commands.spawn(inner_ball_bundle);
+
+        let mut fantasy_bundle = inner_ball_bundle.clone();
+        fantasy_bundle.pbr.material = fantasy_material.clone();
+        fantasy_bundle.pbr.mesh = fantasy_ball_mesh.clone();
+
+        commands.spawn(inner_ball_bundle.clone());
         commands.spawn(ControlBallBundle {
             pbr: PbrBundle {
                 mesh: control_ball_mesh.clone(),
@@ -224,17 +238,23 @@ fn setup(
             control_ball: ControlBall { index: i },
             ..default()
         });
+        commands.spawn((fantasy_bundle, FantasyComponent));
     }
 
     for i in 0..limb.lengths.len() {
-        let cylinder_mesh = meshes.add(Mesh::from(shape::Cylinder {
+        let mesh = meshes.add(Mesh::from(shape::Cylinder {
             radius: 0.15,
+            height: limb.lengths[i],
+            ..default()
+        }));
+        let fantasy_mesh = meshes.add(Mesh::from(shape::Cylinder {
+            radius: 0.15 * 0.999,
             height: limb.lengths[i],
             ..default()
         }));
         let segment_bundle = SegmentBundle {
             pbr: PbrBundle {
-                mesh: cylinder_mesh,
+                mesh,
                 material: material.clone(),
                 transform: limb.segment_transforms[i],
                 ..Default::default()
@@ -242,7 +262,10 @@ fn setup(
             segment: Segment { index: i },
             ..default()
         };
-        commands.spawn((segment_bundle.clone(), FantasyComponent));
+        let mut fantasy_bundle = segment_bundle.clone();
+        fantasy_bundle.pbr.material = fantasy_material.clone();
+        fantasy_bundle.pbr.mesh = fantasy_mesh;
+        commands.spawn((fantasy_bundle, FantasyComponent));
         commands.spawn(segment_bundle);
     }
     limb.finalize();
