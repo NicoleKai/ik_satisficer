@@ -6,6 +6,24 @@ use std::{
 use bevy_math::{Mat3, Quat, Vec3};
 use bevy_transform::prelude::Transform;
 
+#[derive(Default)]
+pub enum PoseDiscrepancy{
+    #[default]
+    WithinTolerance,
+    MildDivergence,
+    SevereDivergence,
+    EnvironmentalCompensation
+
+
+}
+
+#[derive(Debug, Clone)]
+pub struct MotionHeuristics {
+    pub anchor_points: Vec<(usize, Vec3, Quat)>,
+    pub parent_ranking: Vec<(usize, i32)>
+
+}
+
 #[derive(Debug, Clone)]
 pub struct FabrikChain {
     pub joints: Vec<Vec3>,
@@ -15,6 +33,7 @@ pub struct FabrikChain {
     pub prev_angles: Vec<f32>,
     pub angular_velocities: Vec<f32>,
     pub targets: Vec<(usize, Vec3)>,
+    pub motion_heuristics: MotionHeuristics,
     pub prev_time: SystemTime,
     pub lock_ground: bool,
     // FIXME: first reading computation will be way off, start with prev_time option being none, and set it to some
@@ -23,7 +42,7 @@ pub struct FabrikChain {
 }
 
 impl FabrikChain {
-    pub fn new(joints: Vec<Vec3>) -> Self {
+    pub fn new(joints: Vec<Vec3>, motion_heuristics: MotionHeuristics) -> Self {
         let mut lengths = Vec::new();
         for i in 1..joints.len() {
             let length = joints[i].distance(joints[i - 1]);
@@ -38,6 +57,7 @@ impl FabrikChain {
             prev_time: std::time::SystemTime::now(),
             initial_state: None,
             segment_transforms: Vec::new(),
+            motion_heuristics,
             targets: Vec::new(),
             lock_ground: true,
         };
@@ -128,30 +148,46 @@ impl FabrikChain {
         }
     }
 
-    pub fn solve(&mut self, iterations: usize) {
-        for _ in 0..iterations {
-            for (index, pos) in self.targets.iter() {
-                self.joints[*index] = *pos;
-            }
-            self.fwd_reach();
-            // self.joints.last_mut().unwrap().clone_from(&target);
-            if self.lock_ground {
-                self.joints.first_mut().unwrap().clone_from(&Vec3::ZERO);
-            }
-            self.bwd_reach();
+    pub fn solve(&mut self, iterations: usize, pose_discrepancy: PoseDiscrepancy) {
+        match pose_discrepancy {
+            PoseDiscrepancy::WithinTolerance => {
+                for _ in 0..iterations {
+                    for (index, pos) in self.targets.iter() {
+                        self.joints[*index] = *pos;
+                    }
+                    self.fwd_reach();
+                    if self.lock_ground {
+                        self.joints.first_mut().unwrap().clone_from(&Vec3::ZERO);
+                    }
+                    self.bwd_reach();
+                }
+                std::mem::swap(&mut self.angles, &mut self.prev_angles);
+                self.angles.clear();
+                for i in 2..self.joints.len() {
+                    let a = self.joints[i - 2];
+                    let b = self.joints[i - 1];
+                    let c = self.joints[i];
+                    let angle = (a - b).angle_between(c - b);
+                    self.angles.push(angle);
+                }
+                self.recalculate();
+            },
+            PoseDiscrepancy::MildDivergence => {
+                todo!(); // Adjusted solving process to correct mild discrepancies via non-linear optimization 
+                // Will be using Levenberg–Marquardt algorithm
+            },
+            PoseDiscrepancy::SevereDivergence => {
+                todo!(); // More intensive adjustments or alternative strategies 
+            },
+            PoseDiscrepancy::EnvironmentalCompensation => {
+                todo!(); // Special handling for environmental factors, introducing intentional divergences
+            },
         }
-        std::mem::swap(&mut self.angles, &mut self.prev_angles);
-        self.angles.clear();
-        for i in 2..self.joints.len() {
-            let a = self.joints[i - 2];
-            let b = self.joints[i - 1];
-            let c = self.joints[i];
-            let angle = (a - b).angle_between(c - b);
-            self.angles.push(angle);
-        }
-        self.recalculate();
     }
+    
 }
+        
+        
 
 #[cfg(test)]
 mod tests {
@@ -164,7 +200,12 @@ mod tests {
             Vec3::new(1.0, 0.0, 0.0),
             Vec3::new(2.0, 0.0, 0.0),
         ];
-        let chain = FabrikChain::new(joints);
+        let motion_heuristics = MotionHeuristics {
+            anchor_points: Vec::new(),
+            parent_ranking: Vec::new(),
+
+        };
+        let chain = FabrikChain::new(joints,motion_heuristics);
         dbg!(&chain);
 
         assert_eq!(chain.lengths, vec![1.0, 1.0]);
@@ -177,11 +218,17 @@ mod tests {
             Vec3::new(1.0, 0.0, 0.0),
             Vec3::new(2.0, 0.0, 0.0),
         ];
-        let mut chain = FabrikChain::new(joints);
+        let motion_heuristics = MotionHeuristics {
+            anchor_points: Vec::new(), 
+            parent_ranking: Vec::new(),
+        };
+
+        
+        let mut chain = FabrikChain::new(joints, motion_heuristics);
         dbg!(&chain);
         let target = Vec3::new(3.0, 0.0, 0.0);
 
-        chain.solve(target, 10);
+        chain.solve( 10,PoseDiscrepancy::default() );
 
         assert!((*chain.joints.last().unwrap() - target).length() < 0.01);
     }
