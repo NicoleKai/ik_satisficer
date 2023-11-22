@@ -1,11 +1,16 @@
-use std::{
-    assert_eq,
-    time::{Duration, SystemTime},
-};
+mod fk;
 
-use bevy_math::{Mat3, Quat, Vec3};
-use bevy_transform::prelude::Transform;
+mod extern_prelude {
+    pub use std::{
+        assert_eq,
+        time::{Duration, SystemTime},
+    };
 
+    pub use bevy_math::{Mat3, Quat, Vec3};
+    pub use bevy_transform::prelude::Transform;
+}
+
+use extern_prelude::*;
 #[derive(Default)]
 pub enum PoseDiscrepancy {
     #[default]
@@ -16,7 +21,7 @@ pub enum PoseDiscrepancy {
 }
 
 type AnchorPoints = Vec<(usize, Vec3, Quat)>;
-type ParentRanking = Vec<(usize, i32)>;
+type ParentRanking = Vec<(usize, i32, i32)>;
 
 #[derive(Debug, Clone, Default)]
 pub struct MotionHeuristics {
@@ -183,9 +188,9 @@ impl FabrikChain {
     }
 
     pub fn solve(&mut self, iterations: usize, pose_discrepancy: PoseDiscrepancy) {
-        self.recalculate_angles();
         match pose_discrepancy {
             PoseDiscrepancy::WithinTolerance => {
+                self.recalculate_angles();
                 for _ in 0..iterations {
                     for (index, pos) in self.targets.iter() {
                         self.joints[*index] = *pos;
@@ -202,16 +207,13 @@ impl FabrikChain {
             }
             PoseDiscrepancy::MildDivergence => {
                 for i in 0..self.joints.len() {
-                    
-                    let residual_vec = self.fantasy_limb.as_ref().unwrap().joints[i] - self.joints[i];
-                    let infinitesimal_approximation= residual_vec / 2.;
+                    let residual_vec =
+                        self.fantasy_limb.as_ref().unwrap().joints[i] - self.joints[i];
+                    let infinitesimal_approximation = residual_vec / 2.;
                     let r_hat = residual_vec.normalize();
-                    dbg!(self.angles[i]);
-
-                    
-                    // let d_r = 
-
-
+                    let r_hat_div_angle = r_hat / self.angles[i];
+                    dbg!(r_hat_div_angle);
+                    // let d_r =
                 }
             }
             PoseDiscrepancy::SevereDivergence => {
@@ -222,7 +224,6 @@ impl FabrikChain {
             }
         }
         self.recalculate_segments();
-
     }
 }
 
