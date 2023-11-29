@@ -19,12 +19,22 @@ use strum::{EnumIter, IntoEnumIterator};
 #[derive(Resource)]
 pub struct UiState {
     lock_ground: bool,
+    kinematics_mode: KinematicsMode,
 }
 
 impl Default for UiState {
     fn default() -> Self {
-        Self { lock_ground: true }
+        Self { lock_ground: true,
+        kinematics_mode: KinematicsMode::InverseKinematics,
+        }
     }
+}
+#[derive(Default)]
+pub enum KinematicsMode {
+    #[default]
+    InverseKinematics,
+    ForwardKinematics
+
 }
 
 #[derive(Component)]
@@ -257,11 +267,11 @@ fn setup(
                 mesh,
                 material: material.clone(),
                 transform: limb.segment_transforms[i],
-                ..Default::default()
+                ..Default::default()    
             },
             segment: Segment { index: i },
             ..default()
-        };
+        };  
         let mut fantasy_bundle = segment_bundle.clone();
         fantasy_bundle.pbr.material = fantasy_material.clone();
         fantasy_bundle.pbr.mesh = fantasy_mesh;
