@@ -65,6 +65,7 @@ fn main() {
     };
     App::new()
         .add_state::<LimbState>()
+        .insert_resource(KinematicsMode::default()) 
         .add_plugins((
             DefaultPlugins.set(WindowPlugin {
                 primary_window: Some(window),
@@ -111,8 +112,30 @@ fn main() {
             Update,
             sync_segment_transform.run_if(on_event::<SyncTransforms>()),
         )
+        .add_system_set_to_stage( // Add a system set for Forward Kinematics
+            CoreStage::Update,
+            SystemSet::new()
+                .with_run_criteria(|kinematics_mode: Res<KinematicsMode>| {
+                    if *kinematics_mode == KinematicsMode::ForwardKinematics {
+                        ShouldRun::Yes
+                    } else {
+                        ShouldRun::No
+                    }
+                })
+                .with_system(forward_kinematics_system),
+        )
         .run();
 }
+
+
+fn forward_kinematics_system(
+    // Include necessary resources and queries here
+) {
+    // Placeholder logic or initial implementation
+    // This will be expanded to include your Levenberg-Marquardt guided calculations
+}
+
+
 
 #[derive(Component, Default, Debug, Clone)]
 struct ControlBall {
