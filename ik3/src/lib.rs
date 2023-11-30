@@ -20,6 +20,14 @@ pub enum PoseDiscrepancy {
     EnvironmentalCompensation,
 }
 
+#[derive(Default)]
+pub enum KinematicsMode {
+    #[default]
+    InverseKinematics,
+    ForwardKinematics,
+}
+
+
 type AnchorPoints = Vec<(usize, Vec3, Quat)>;
 type ParentRanking = Vec<(usize, i32, i32)>;
 
@@ -187,9 +195,10 @@ impl FabrikChain {
         self.angles.push(std::f32::consts::PI);
     }
 
-    pub fn solve(&mut self, iterations: usize, pose_discrepancy: PoseDiscrepancy) {
+    pub fn solve(&mut self, iterations: usize, pose_discrepancy: PoseDiscrepancy, kinematics_mode: &mut KinematicsMode) {
         match pose_discrepancy {
             PoseDiscrepancy::WithinTolerance => {
+                *kinematics_mode = KinematicsMode::InverseKinematics;
                 self.recalculate_angles();
                 for _ in 0..iterations {
                     for (index, pos) in self.targets.iter() {
@@ -206,6 +215,7 @@ impl FabrikChain {
                 }
             }
             PoseDiscrepancy::MildDivergence => {
+                *kinematics_mode = KinematicsMode::ForwardKinematics;
                 for i in 0..self.joints.len() {
                     let residual_vec =
                         self.fantasy_limb.as_ref().unwrap().joints[i] - self.joints[i];

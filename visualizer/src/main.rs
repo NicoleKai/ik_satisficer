@@ -12,7 +12,7 @@ use bevy_transform_gizmo::{
 use bevy::{ecs::schedule::ScheduleGraph, pbr::PointLightShadowMap, prelude::*};
 
 use egui_plot::{BoxPlot, Line, Plot, PlotPoint, PlotPoints, PlotUi};
-use ik3::{self, FabrikChain, MotionHeuristics, PoseDiscrepancy};
+use ik3::{self, FabrikChain, MotionHeuristics, PoseDiscrepancy,KinematicsMode};
 use itertools::Itertools;
 use strum::{EnumIter, IntoEnumIterator};
 
@@ -29,13 +29,7 @@ impl Default for UiState {
         }
     }
 }
-#[derive(Default)]
-pub enum KinematicsMode {
-    #[default]
-    InverseKinematics,
-    ForwardKinematics
 
-}
 
 #[derive(Component)]
 pub struct LimbData(FabrikChain);
@@ -112,29 +106,30 @@ fn main() {
             Update,
             sync_segment_transform.run_if(on_event::<SyncTransforms>()),
         )
-        .add_system_set_to_stage( // Add a system set for Forward Kinematics
-            CoreStage::Update,
-            SystemSet::new()
-                .with_run_criteria(|kinematics_mode: Res<KinematicsMode>| {
-                    if *kinematics_mode == KinematicsMode::ForwardKinematics {
-                        ShouldRun::Yes
-                    } else {
-                        ShouldRun::No
-                    }
-                })
-                .with_system(forward_kinematics_system),
-        )
+        .add_systems(Update, forward_kinematics)
         .run();
 }
 
 
-fn forward_kinematics_system(
-    // Include necessary resources and queries here
+fn forward_kinematics(
+    kinematics_mode: Res<KinematicsMode>,
+    // Add other necessary resources and queries here
 ) {
-    // Placeholder logic or initial implementation
-    // This will be expanded to include your Levenberg-Marquardt guided calculations
-}
+    // Check if the current kinematics mode is ForwardKinematics
+    if *kinematics_mode != KinematicsMode::ForwardKinematics {
+        // If not, return early and do nothing
+        return;
+    }
 
+    // If it is ForwardKinematics, proceed with the system's logic
+    // Implement the forward kinematics calculations and updates here
+    // ...
+
+    // Example logic (this is just a placeholder)
+    // for (mut transform, _joint) in query.iter_mut() {
+    //     // Update the transform based on forward kinematics calculations
+    // }
+}
 
 
 #[derive(Component, Default, Debug, Clone)]
